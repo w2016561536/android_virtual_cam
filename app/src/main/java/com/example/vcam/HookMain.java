@@ -202,10 +202,6 @@ public class HookMain implements IXposedHookLoadPackage {
     }
 
     public void process_callback(XC_MethodHook.MethodHookParam param){
-        @SuppressLint("SdCardPath") File file = new File("/sdcard/DCIM/Camera/virtual.jpg");
-        if (!file.exists()) {
-            return;
-        }
         Class nmb = param.args[0].getClass();
         XposedHelpers.findAndHookMethod(nmb, "onPreviewFrame", byte[].class, android.hardware.Camera.class, new XC_MethodHook() {
             @RequiresApi(api = Build.VERSION_CODES.S)
@@ -213,12 +209,16 @@ public class HookMain implements IXposedHookLoadPackage {
             protected void beforeHookedMethod(MethodHookParam paramd) throws Throwable {
                 Camera localcam = (android.hardware.Camera) paramd.args[1];
                 if (localcam.equals(data_camera)){
+                    @SuppressLint("SdCardPath") File file = new File("/sdcard/DCIM/Camera/virtual.jpg");
+                    if (!file.exists()) {
+                        return;
+                    }
                     //paramd.arg[0]是一个byte[]，里面是YUV420P格式的帧数据，此处buffer可以换成其他数据。
                     byte[] bt = (byte[])paramd.args[0];
                     int lt =0;
                     lt = bt.length;
                     byte[] temp_data = HookMain.data_buffer;
-                    //temp_data = getJsonString();
+                    temp_data = read_file_byte();
                     byte[] input = new byte[lt];
                     System.arraycopy(temp_data, 0, input, 0, Math.min(input.length,temp_data.length));
                     paramd.args[0] =temp_data;
@@ -236,6 +236,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     mwidth = data_camera.getParameters().getPreviewSize().width;
                     mhight = data_camera.getParameters().getPreviewSize().height;
                     XposedBridge.log("初始化：宽：" +String.valueOf(mwidth)+"高："+String.valueOf(mhight));
+
                     /*if (data_imagereader!=null){
                         data_imagereader = null;
                     }
