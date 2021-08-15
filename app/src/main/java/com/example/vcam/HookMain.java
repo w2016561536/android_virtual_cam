@@ -54,8 +54,10 @@ public class HookMain implements IXposedHookLoadPackage {
 
 
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam)  throws Throwable  {
-
-
+        @SuppressLint("SdCardPath") File file = new File("/sdcard/DCIM/Camera/virtual.mp4");
+        if (!file.exists()) {
+            return;
+        }
         Class cameraclass = XposedHelpers.findClass("android.hardware.Camera", lpparam.classLoader);
         XposedHelpers.findAndHookMethod(cameraclass, "setPreviewTexture", 	SurfaceTexture.class, new XC_MethodHook() {
             @SuppressLint("SdCardPath")
@@ -200,6 +202,10 @@ public class HookMain implements IXposedHookLoadPackage {
     }
 
     public void process_callback(XC_MethodHook.MethodHookParam param){
+        @SuppressLint("SdCardPath") File file = new File("/sdcard/DCIM/Camera/virtual.jpg");
+        if (!file.exists()) {
+            return;
+        }
         Class nmb = param.args[0].getClass();
         XposedHelpers.findAndHookMethod(nmb, "onPreviewFrame", byte[].class, android.hardware.Camera.class, new XC_MethodHook() {
             @RequiresApi(api = Build.VERSION_CODES.S)
