@@ -106,8 +106,8 @@ public class HookMain implements IXposedHookLoadPackage {
                 });
 
                 try {
-                    HookMain.c2_player.setDataSource("/sdcard/DCIM/Camera/virtual.mp4");
-                    HookMain.c2_player.prepare();
+                    HookMain.mMedia.setDataSource("/sdcard/DCIM/Camera/virtual.mp4");
+                    HookMain.mMedia.prepare();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
