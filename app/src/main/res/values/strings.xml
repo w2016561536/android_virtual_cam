@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">VCAM</string>
+    <string name="text1">替换预览资源，空为停用</string>
+    <string name="text2">回调资源，仅支持本地YUV420，空为停用</string>
+    <string name="textureview_m3u8">注：预览资源指TextureView的替换，支持视频（支持在线资源，如M3U8）\n回调资源指onPreviewFrame的替换，仅支持本地YUV420的图片，添加图片请确认图片尺寸与摄像头预览尺寸匹配（可在xposed的日志中看到摄像头预览尺寸）</string>
 </resources>
