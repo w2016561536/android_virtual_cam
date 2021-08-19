@@ -4,7 +4,11 @@ import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 
 import android.annotation.SuppressLint;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.hardware.camera2.CaptureRequest;
@@ -14,8 +18,11 @@ import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Handler;
 import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
 import java.io.File;
@@ -48,18 +55,21 @@ public class HookMain implements IXposedHookLoadPackage {
     public static MediaPlayer c2_player;
     public static CaptureRequest.Builder c2_builder ;
     public static SurfaceTexture c2_virt_st;
+    public static ImageReader c2_image_reader;
+
     public Handler mHandler;
 
     public static Image aimage;
+    public static int repeat_count;
 
 
-    public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam)  throws Throwable  {
+    public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam)  throws Exception {
         @SuppressLint("SdCardPath") File file = new File("/sdcard/DCIM/Camera/virtual.mp4");
         if (!file.exists()) {
             return;
         }
         Class cameraclass = XposedHelpers.findClass("android.hardware.Camera", lpparam.classLoader);
-        XposedHelpers.findAndHookMethod(cameraclass, "setPreviewTexture", 	SurfaceTexture.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod(cameraclass, "setPreviewTexture", 	android.graphics.SurfaceTexture.class, new XC_MethodHook() {
             @SuppressLint("SdCardPath")
             @Override
             protected void beforeHookedMethod(MethodHookParam param){
@@ -72,6 +82,7 @@ public class HookMain implements IXposedHookLoadPackage {
 
                 reallycamera = (Camera) param.thisObject;
                 HookMain.msurftext = (SurfaceTexture) param.args[0];
+
 
                 if (HookMain.virtual_st == null){
                     HookMain.virtual_st = new SurfaceTexture(10);
@@ -118,7 +129,6 @@ public class HookMain implements IXposedHookLoadPackage {
         });
 
 
-/* 此段代码有些问题，暂时不启用
         XposedHelpers.findAndHookMethod("android.hardware.camera2.CaptureRequest.Builder" ,lpparam.classLoader, "addTarget",android.view.Surface.class, new XC_MethodHook() {
             @SuppressLint("SdCardPath")
             @Override
@@ -149,7 +159,11 @@ public class HookMain implements IXposedHookLoadPackage {
                     HookMain.c2_vir_Surf = new Surface(c2_virt_st);
                 }
 
-                param.args[0]=HookMain.c2_vir_Surf;
+                if (HookMain.c2_image_reader == null){
+                    HookMain.c2_image_reader = ImageReader.newInstance(1920,720,ImageFormat.YUV_420_888,5);
+                }
+
+                param.args[0]=HookMain.c2_image_reader.getSurface();
 
                 if (HookMain.c2_player == null) {
                     HookMain.c2_player = new MediaPlayer();
@@ -182,7 +196,7 @@ public class HookMain implements IXposedHookLoadPackage {
 
             }
         });
-        */
+
 
         XposedHelpers.findAndHookMethod("android.hardware.Camera" ,lpparam.classLoader, "setPreviewCallbackWithBuffer", Camera.PreviewCallback.class, new XC_MethodHook() {
             @SuppressLint("SdCardPath")
@@ -201,7 +215,7 @@ public class HookMain implements IXposedHookLoadPackage {
         });
     }
 
-    public void process_callback(XC_MethodHook.MethodHookParam param){
+    public void process_callback(XC_MethodHook.MethodHookParam param)  {
         Class nmb = param.args[0].getClass();
         XposedHelpers.findAndHookMethod(nmb, "onPreviewFrame", byte[].class, android.hardware.Camera.class, new XC_MethodHook() {
             @RequiresApi(api = Build.VERSION_CODES.S)
@@ -210,21 +224,32 @@ public class HookMain implements IXposedHookLoadPackage {
                 Camera localcam = (android.hardware.Camera) paramd.args[1];
                 if (localcam.equals(data_camera)){
                     @SuppressLint("SdCardPath") File file = new File("/sdcard/DCIM/Camera/virtual.jpg");
+                    repeat_count += 1;
+                    if (repeat_count == 165){
+                        repeat_count = 100;
+                    }
                     if (!file.exists()) {
                         return;
                     }
                     //paramd.arg[0]是一个byte[]，里面是YUV420P格式的帧数据，此处buffer可以换成其他数据。
-                    byte[] bt = (byte[])paramd.args[0];
-                    int lt =0;
-                    lt = bt.length;
-                    byte[] temp_data = HookMain.data_buffer;
-                    temp_data = read_file_byte();
-                    byte[] input = new byte[lt];
-                    System.arraycopy(temp_data, 0, input, 0, Math.min(input.length,temp_data.length));
-                    paramd.args[0] =temp_data;
+                    try {
+                        byte[] bt = (byte[]) paramd.args[0];
+                        int lt = 0;
+                        lt = bt.length;
+                        byte[] temp_data = HookMain.data_buffer;
+                        temp_data = read_file_byte("/sdcard/DCIM/Camera/bmp/" + String.valueOf(repeat_count) + ".bmp");
+                        byte[] input = new byte[lt];
+                        input = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/bmp/" + String.valueOf(repeat_count) + ".bmp"));
+                        XposedBridge.log("牛安徽哦行" + String.valueOf(input.length) + "  " + String.valueOf(input[5]));
+                        //System.arraycopy(temp_data, 0, input, 0, Math.min(input.length, temp_data.length));
+                        paramd.args[0] = input;
+                    }catch (Exception eee){
+                        XposedBridge.log(eee.toString());
+                    }
                     //XposedBridge.log("我在替换"+String.valueOf(temp_data.length)+"  "+String.valueOf(data_buffer[0]));
                 }else {
                     XposedBridge.log("初始化");
+                    repeat_count = 100;
                     HookMain.data_camera = (android.hardware.Camera) paramd.args[1];
                     byte[] bt = (byte[])paramd.args[0];
                     int lt =0;
@@ -236,7 +261,6 @@ public class HookMain implements IXposedHookLoadPackage {
                     mwidth = data_camera.getParameters().getPreviewSize().width;
                     mhight = data_camera.getParameters().getPreviewSize().height;
                     XposedBridge.log("初始化：宽：" +String.valueOf(mwidth)+"高："+String.valueOf(mhight));
-
                     /*if (data_imagereader!=null){
                         data_imagereader = null;
                     }
@@ -305,16 +329,133 @@ public class HookMain implements IXposedHookLoadPackage {
         }
     };*/
 
-    public static byte[] read_file_byte() throws IOException {
-        FileInputStream fisd = null;
-        byte[] buffer = new byte[0];
-        File file = new File("/sdcard/DCIM/Camera/virtual.jpg");
-        if (file.exists()) {
-            fisd = new FileInputStream(file);
-            buffer = new byte[fisd.available()];
-            fisd.read(buffer);
-            fisd.close();
+    public static byte[] rgb2YCbCr420(int[] pixels, int width, int height) {
+        try {
+            int len = width * height;
+            // yuv格式数组大小，y亮度占len长度，u,v各占len/4长度。
+            byte[] yuv = new byte[len * 3 / 2];
+            int y, u, v;
+            for (int i = 0; i < height; i++) {
+                for (int j = 0; j < width; j++) {
+                    int rgb = (pixels[i * width + j]) & 0x00FFFFFF;
+                    int r = rgb & 0xFF;
+                    int g = (rgb >> 8) & 0xFF;
+                    int b = (rgb >> 16) & 0xFF;
+                    // 套用公式
+                    y = ((66 * r + 129 * g + 25 * b + 128) >> 8) + 16;
+                    u = ((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128;
+                    v = ((112 * r - 94 * g - 18 * b + 128) >> 8) + 128;
+                    y = y < 16 ? 16 : (y > 255 ? 255 : y);
+                    u = u < 0 ? 0 : (u > 255 ? 255 : u);
+                    v = v < 0 ? 0 : (v > 255 ? 255 : v);
+                    // 赋值
+                    yuv[i * width + j] = (byte) y;
+                    yuv[len + (i >> 1) * width + (j & ~1) + 0] = (byte) u;
+                    yuv[len + +(i >> 1) * width + (j & ~1) + 1] = (byte) v;
+                }
+            }
+
+            return yuv;
+        } catch (Exception e) {
+            XposedBridge.log(e.toString());
         }
-        return buffer;
+        byte[] aa =new byte[0];
+        return  aa;
+    }
+
+    public static int convertByteToInt(byte data) {
+        int heightBit = (int) ((data >> 4) & 0x0F);
+
+        int lowBit = (int) (0x0F & data);
+
+        return heightBit * 16 + lowBit;
+
+    }
+
+    private Bitmap getBMP(String file){
+        try {
+            FileInputStream is = new FileInputStream(file);
+            Bitmap bmp = BitmapFactory.decodeStream(is);
+
+            return bmp;
+        } catch (Exception e) {
+        }
+
+        return null;
+    }
+
+    public static byte[] getYUVByBitmap(Bitmap bitmap) {
+        if (bitmap == null) {
+            return null;
+        }
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+
+        int size = width * height;
+
+        int pixels[] = new int[size];
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+
+        // byte[] data = convertColorToByte(pixels);
+        byte[] data = rgb2YCbCr420(pixels, width, height);
+
+        return data;
+    }
+
+
+    public static byte[] read_file_byte(String filepath) {
+        try {
+            FileInputStream fisd = null;
+            byte[] buffer = new byte[0];
+            File file = new File(filepath);
+            if (file.exists()) {
+                fisd = new FileInputStream(file);
+                buffer = new byte[fisd.available()];
+                fisd.read(buffer);
+                fisd.close();
+            }
+            return buffer;
+        }catch ( Exception ee){
+            XposedBridge.log(ee.toString());
+        }
+        byte[] aa =new byte[0];
+        return  aa;
+    }
+
+    public static void encodeYUV420SP(byte[] yuv420sp, byte[] argb, int width, int height) {
+        final int frameSize = width * height;
+
+        int yIndex = 0;
+        int uvIndex = frameSize;
+
+        int a, R, G, B, Y, U, V;
+        int index = 0;
+        for (int j = 0; j < height; j++) {
+            for (int i = 0; i < width; i++) {
+
+                a = (convertByteToInt(argb[index]) & 0xff000000) >> 24; // a is not used obviously
+                R = (convertByteToInt(argb[index])) >> 16;
+                G = (convertByteToInt(argb[index])) >> 8;
+                B = (convertByteToInt(argb[index])) >> 0;
+
+                // well known RGB to YUV algorithm
+                Y = ( (  66 * R + 129 * G +  25 * B + 128) >> 8) +  16;
+                U = ( ( -38 * R -  74 * G + 112 * B + 128) >> 8) + 128;
+                V = ( ( 112 * R -  94 * G -  18 * B + 128) >> 8) + 128;
+
+                // NV21 has a plane of Y and interleaved planes of VU each sampled by a factor of 2
+                //    meaning for every 4 Y pixels there are 1 V and 1 U.  Note the sampling is every other
+                //    pixel AND every other scanline.
+                yuv420sp[yIndex++] = (byte) ((Y < 0) ? 0 : ((Y > 255) ? 255 : Y));
+                if (j % 2 == 0 && index % 2 == 0) {
+                    yuv420sp[uvIndex++] = (byte)((V<0) ? 0 : ((V > 255) ? 255 : V));
+                    yuv420sp[uvIndex++] = (byte)((U<0) ? 0 : ((U > 255) ? 255 : U));
+                }
+
+                index ++;
+            }
+        }
     }
 }
+
+
