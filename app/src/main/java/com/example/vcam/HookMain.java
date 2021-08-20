@@ -229,8 +229,22 @@ public class HookMain implements IXposedHookLoadPackage {
             @SuppressLint("SdCardPath")
             @Override
             protected void afterHookedMethod(MethodHookParam param){
+                XposedBridge.log("4参数拍照");
                 if (param.args[1] == null){
-                    process_a_shot_jpeg(param);
+                    process_a_shot_jpeg(param,3);
+                }else {
+                    process_a_shot_YUV(param);
+                }
+            }
+        });
+
+        XposedHelpers.findAndHookMethod("android.hardware.Camera" ,lpparam.classLoader, "takePicture", Camera.ShutterCallback.class,Camera.PictureCallback.class,Camera.PictureCallback.class, new XC_MethodHook() {
+            @SuppressLint("SdCardPath")
+            @Override
+            protected void afterHookedMethod(MethodHookParam param){
+                XposedBridge.log("3参数拍照");
+                if (param.args[1] == null){
+                    process_a_shot_jpeg(param,2);
                 }else {
                     process_a_shot_YUV(param);
                 }
@@ -239,14 +253,14 @@ public class HookMain implements IXposedHookLoadPackage {
 
     }
 
-    public void process_a_shot_jpeg(XC_MethodHook.MethodHookParam param){
+    public void process_a_shot_jpeg(XC_MethodHook.MethodHookParam param,int index){
         try{
             //XposedBridge.log("发现拍照raw:"+ param.args[1].toString());
-            XposedBridge.log("第二个jpeg:"+param.args[3].toString());}catch (Exception eee){
+            XposedBridge.log("第二个jpeg:"+param.args[index].toString());}catch (Exception eee){
             XposedBridge.log(eee.toString());
 
         }
-        Class callback = param.args[3].getClass();
+        Class callback = param.args[index].getClass();
 
         XposedHelpers.findAndHookMethod(callback, "onPictureTaken", byte[].class, android.hardware.Camera.class, new XC_MethodHook() {
             @Override
@@ -255,7 +269,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     Camera loaclcam = (Camera) paramd.args[1];
                     onemwidth = loaclcam.getParameters().getPreviewSize().width;
                     onemhight = loaclcam.getParameters().getPreviewSize().height;
-                    XposedBridge.log("拍照回调初始化：宽：" + String.valueOf(onemwidth) + "高：" + String.valueOf(onemhight));
+                    XposedBridge.log("JPEG拍照回调初始化：宽：" + String.valueOf(onemwidth) + "高：" + String.valueOf(onemhight));
                     Bitmap pict = getBMP("/sdcard/DCIM/Camera/bmp/1002.bmp");
                     ByteArrayOutputStream temp_array = new ByteArrayOutputStream();
                     pict.compress(Bitmap.CompressFormat.JPEG,100,temp_array);
