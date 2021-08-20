@@ -223,30 +223,20 @@ public class HookMain implements IXposedHookLoadPackage {
             protected void beforeHookedMethod(MethodHookParam paramd) throws Throwable {
                 Camera localcam = (android.hardware.Camera) paramd.args[1];
                 if (localcam.equals(data_camera)){
-                    @SuppressLint("SdCardPath") File file = new File("/sdcard/DCIM/Camera/virtual.jpg");
                     repeat_count += 1;
                     if (repeat_count == 165){
                         repeat_count = 100;
                     }
-                    if (!file.exists()) {
-                        return;
-                    }
-                    //paramd.arg[0]是一个byte[]，里面是YUV420P格式的帧数据，此处buffer可以换成其他数据。
                     try {
                         byte[] bt = (byte[]) paramd.args[0];
                         int lt = 0;
                         lt = bt.length;
-                        byte[] temp_data = HookMain.data_buffer;
-                        temp_data = read_file_byte("/sdcard/DCIM/Camera/bmp/" + String.valueOf(repeat_count) + ".bmp");
                         byte[] input = new byte[lt];
                         input = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/bmp/" + String.valueOf(repeat_count) + ".bmp"));
-                        XposedBridge.log("牛安徽哦行" + String.valueOf(input.length) + "  " + String.valueOf(input[5]));
-                        //System.arraycopy(temp_data, 0, input, 0, Math.min(input.length, temp_data.length));
                         paramd.args[0] = input;
                     }catch (Exception eee){
                         XposedBridge.log(eee.toString());
                     }
-                    //XposedBridge.log("我在替换"+String.valueOf(temp_data.length)+"  "+String.valueOf(data_buffer[0]));
                 }else {
                     XposedBridge.log("初始化");
                     repeat_count = 100;
@@ -329,6 +319,8 @@ public class HookMain implements IXposedHookLoadPackage {
         }
     };*/
 
+    //以下代码来源：https://blog.csdn.net/jacke121/article/details/73888732
+
     public static byte[] rgb2YCbCr420(int[] pixels, int width, int height) {
         try {
             int len = width * height;
@@ -363,15 +355,6 @@ public class HookMain implements IXposedHookLoadPackage {
         return  aa;
     }
 
-    public static int convertByteToInt(byte data) {
-        int heightBit = (int) ((data >> 4) & 0x0F);
-
-        int lowBit = (int) (0x0F & data);
-
-        return heightBit * 16 + lowBit;
-
-    }
-
     private Bitmap getBMP(String file){
         try {
             FileInputStream is = new FileInputStream(file);
@@ -380,7 +363,6 @@ public class HookMain implements IXposedHookLoadPackage {
             return bmp;
         } catch (Exception e) {
         }
-
         return null;
     }
 
@@ -390,71 +372,11 @@ public class HookMain implements IXposedHookLoadPackage {
         }
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
-
         int size = width * height;
-
         int pixels[] = new int[size];
         bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
-
-        // byte[] data = convertColorToByte(pixels);
         byte[] data = rgb2YCbCr420(pixels, width, height);
-
         return data;
-    }
-
-
-    public static byte[] read_file_byte(String filepath) {
-        try {
-            FileInputStream fisd = null;
-            byte[] buffer = new byte[0];
-            File file = new File(filepath);
-            if (file.exists()) {
-                fisd = new FileInputStream(file);
-                buffer = new byte[fisd.available()];
-                fisd.read(buffer);
-                fisd.close();
-            }
-            return buffer;
-        }catch ( Exception ee){
-            XposedBridge.log(ee.toString());
-        }
-        byte[] aa =new byte[0];
-        return  aa;
-    }
-
-    public static void encodeYUV420SP(byte[] yuv420sp, byte[] argb, int width, int height) {
-        final int frameSize = width * height;
-
-        int yIndex = 0;
-        int uvIndex = frameSize;
-
-        int a, R, G, B, Y, U, V;
-        int index = 0;
-        for (int j = 0; j < height; j++) {
-            for (int i = 0; i < width; i++) {
-
-                a = (convertByteToInt(argb[index]) & 0xff000000) >> 24; // a is not used obviously
-                R = (convertByteToInt(argb[index])) >> 16;
-                G = (convertByteToInt(argb[index])) >> 8;
-                B = (convertByteToInt(argb[index])) >> 0;
-
-                // well known RGB to YUV algorithm
-                Y = ( (  66 * R + 129 * G +  25 * B + 128) >> 8) +  16;
-                U = ( ( -38 * R -  74 * G + 112 * B + 128) >> 8) + 128;
-                V = ( ( 112 * R -  94 * G -  18 * B + 128) >> 8) + 128;
-
-                // NV21 has a plane of Y and interleaved planes of VU each sampled by a factor of 2
-                //    meaning for every 4 Y pixels there are 1 V and 1 U.  Note the sampling is every other
-                //    pixel AND every other scanline.
-                yuv420sp[yIndex++] = (byte) ((Y < 0) ? 0 : ((Y > 255) ? 255 : Y));
-                if (j % 2 == 0 && index % 2 == 0) {
-                    yuv420sp[uvIndex++] = (byte)((V<0) ? 0 : ((V > 255) ? 255 : V));
-                    yuv420sp[uvIndex++] = (byte)((U<0) ? 0 : ((U > 255) ? 255 : U));
-                }
-
-                index ++;
-            }
-        }
     }
 }
 
