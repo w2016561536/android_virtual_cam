@@ -19,7 +19,7 @@
             android:value="安卓虚拟摄像头" />
         <meta-data
             android:name="xposedminversion"
-            android:value="54" />
+            android:value="51" />
     </application>
 
 </manifest>

@@ -45,8 +45,6 @@ public class HookMain implements IXposedHookLoadPackage {
 
     public static Camera data_camera;
     public static byte[] data_buffer;
-    public static MediaPlayer data_mediaplayer;
-    public static ImageReader data_imagereader;
     public static int mhight;
     public static int mwidth;
 
@@ -59,7 +57,6 @@ public class HookMain implements IXposedHookLoadPackage {
 
     public Handler mHandler;
 
-    public static Image aimage;
     public static int repeat_count;
 
 
@@ -130,6 +127,7 @@ public class HookMain implements IXposedHookLoadPackage {
 
 
         XposedHelpers.findAndHookMethod("android.hardware.camera2.CaptureRequest.Builder" ,lpparam.classLoader, "addTarget",android.view.Surface.class, new XC_MethodHook() {
+            @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
             @SuppressLint("SdCardPath")
             @Override
             protected void beforeHookedMethod(MethodHookParam param){
@@ -141,8 +139,6 @@ public class HookMain implements IXposedHookLoadPackage {
                 }
 
                 HookMain.c2_builder = (CaptureRequest.Builder) param.thisObject;
-                XposedBridge.log("啊棒啊棒啊" + HookMain.c2_builder.toString());
-
                 HookMain.c2_ori_Surf = (Surface) param.args[0];
 
                 if (HookMain.c2_virt_st == null){
@@ -238,7 +234,7 @@ public class HookMain implements IXposedHookLoadPackage {
                         XposedBridge.log(eee.toString());
                     }
                 }else {
-                    XposedBridge.log("初始化");
+                    //XposedBridge.log("初始化");
                     repeat_count = 100;
                     HookMain.data_camera = (android.hardware.Camera) paramd.args[1];
                     byte[] bt = (byte[])paramd.args[0];
@@ -250,7 +246,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     }
                     mwidth = data_camera.getParameters().getPreviewSize().width;
                     mhight = data_camera.getParameters().getPreviewSize().height;
-                    XposedBridge.log("初始化：宽：" +String.valueOf(mwidth)+"高："+String.valueOf(mhight));
+                    XposedBridge.log("预览回调初始化：宽：" +String.valueOf(mwidth)+"高："+String.valueOf(mhight));
                     /*if (data_imagereader!=null){
                         data_imagereader = null;
                     }
