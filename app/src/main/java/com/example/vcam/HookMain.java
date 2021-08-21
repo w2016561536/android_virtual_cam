@@ -269,7 +269,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 }
             }
         });
-
+/*
         XposedHelpers.findAndHookMethod("android.hardware.Camera" ,lpparam.classLoader, "stopPreview", new XC_MethodHook() {
             @SuppressLint("SdCardPath")
             @Override
@@ -279,7 +279,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     callback_calss = null;
                 }
             }
-        });
+        });*/
 
         XposedHelpers.findAndHookMethod("android.hardware.Camera" ,lpparam.classLoader, "takePicture", Camera.ShutterCallback.class,Camera.PictureCallback.class,Camera.PictureCallback.class, new XC_MethodHook() {
             @SuppressLint("SdCardPath")
