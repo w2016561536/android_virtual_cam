@@ -274,10 +274,11 @@ public class HookMain implements IXposedHookLoadPackage {
             @SuppressLint("SdCardPath")
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
-                XposedBridge.log("终止预览：" + param.thisObject.getClass().toString());
-                callback_calss = null;
+                if (param.thisObject != null) {
+                    XposedBridge.log("终止预览：" + param.thisObject.getClass().toString());
+                    callback_calss = null;
+                }
             }
-
         });
 
         XposedHelpers.findAndHookMethod("android.hardware.Camera" ,lpparam.classLoader, "takePicture", Camera.ShutterCallback.class,Camera.PictureCallback.class,Camera.PictureCallback.class, new XC_MethodHook() {
