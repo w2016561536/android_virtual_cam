@@ -21,7 +21,7 @@ xposed安卓虚拟摄像头
 ## Camera2接口有问题？？  
 是的，目前Camera2接口的HOOK不是所有应用程序都能生效，部分app报错打开相机失败，如果想停用Camera2接口的HOOK，可在/sdcard/DCIM下创建disable.jpg，以停用此项HOOK  
 
-## release无法下载？？  
+## release无法下载/gitee下载(gitee与github作者同id，同仓库名)？？  
 在/app/release/app-release.apk，下载前请注意分支。  
 
 # 请勿用于非法用途，任何法律问题与作者无关。  
