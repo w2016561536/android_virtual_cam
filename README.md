@@ -11,4 +11,7 @@ xposed安卓虚拟摄像头
 ## > 如何获得分辨率？？(仅onPreviewFrame需要，其它系统自动处理)
 在目标应用中打开摄像头，若创建回调则即可在Xposed log得到分辨率。
 
+## Camera2接口有问题？？
+是的，目前Camera2接口的HOOK不是所有应用程序都能生效，部分app报错打开相机失败，如果想停用Camera2接口的HOOK，可在/sdcard/DCIM下创建disable.jpg，以停用此项HOOK
+
 # 请勿用于非法用途，任何法律问题与作者无关。
