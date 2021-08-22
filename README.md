@@ -2,7 +2,7 @@
 xposed安卓虚拟摄像头  
 ## 感谢https://github.com/wangwei1237/CameraHook 提供的HOOK思路！！  
 
-已加入Camera2支持，抖音测试通过，需要**不静音**的可以在no-silent的分支里./app/release/app-release.apk下载。直达链接：https://github.com/w2016561536/android_virtual_cam/blob/no-silent/app/release/app-release.apk  
+已加入Camera2支持，抖音测试通过，需要**不静音**的可以在no-silent的分支/app/release/app-release.apk下载。（链接全部放下面了）  
 ### github release里全是静音的。  
 ## 软件对TextureView预览信息替换的视频是 /sdcard/DCIM/Camera/virtual.mp4  
 ## 软件对onPreviewFrame预览信息替换的**照片**是 /sdcard/DCIM/Camera/bmp/****.bmp
@@ -23,5 +23,10 @@ xposed安卓虚拟摄像头
 
 ## release无法下载/gitee下载(gitee与github作者同id，同仓库名)？？  
 在/app/release/app-release.apk，下载前请注意分支。  
+静音（主分支）：GitHub： https://github.com/w2016561536/android_virtual_cam/blob/master/app/release/app-release.apk  
+gitee（中国大陆建议此点）： https://gitee.com/w2016561536/android_virtual_cam/blob/master/app/release/app-release.apk  
+——————————  
+不静音（no-silent分支）：GitHub： https://github.com/w2016561536/android_virtual_cam/blob/no-silent/app/release/app-release.apk   
+gitee（中国大陆建议此点）： https://gitee.com/w2016561536/android_virtual_cam/blob/no-silent/app/release/app-release.apk  
 
 # 请勿用于非法用途，任何法律问题与作者无关。  
