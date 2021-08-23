@@ -67,6 +67,9 @@ public class HookMain implements IXposedHookLoadPackage {
             @SuppressLint("SdCardPath")
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
+                if (param.args[0] == null){
+                    return;
+                }
 
                 if (reallycamera != null && reallycamera.equals((Camera) param.thisObject)) {
                     param.args[0] = HookMain.virtual_st;
