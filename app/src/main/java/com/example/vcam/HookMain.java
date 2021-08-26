@@ -24,6 +24,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -157,7 +158,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 protected void beforeHookedMethod(MethodHookParam param) {
                     File file = new File("/sdcard/DCIM/Camera/virtual.mp4");
                     File control_file = new File("/sdcard/DCIM/disable.jpg");
-                    if (control_file.exists() && (!control_file.exists())) {
+                    if (file.exists() && (!control_file.exists())) {
 
                         if (HookMain.c2_builder != null && HookMain.c2_builder.equals(param.thisObject)) {
                             param.args[0] = HookMain.c2_image_reader.getSurface();
@@ -222,7 +223,6 @@ public class HookMain implements IXposedHookLoadPackage {
                     return;
                 }
                 Camera thiscam = (Camera) param.thisObject;
-                //XposedBridge.log("创建缓冲区"+String.valueOf(((byte[])param.args[0]).length));
                 param.args[0] = new byte[thiscam.getParameters().getPreviewSize().width*thiscam.getParameters().getPreviewSize().height*3/2];
             }
         });
@@ -306,7 +306,7 @@ public class HookMain implements IXposedHookLoadPackage {
                         if (HookMain.c2_image_reader == null) {
                             HookMain.c2_image_reader = ImageReader.newInstance(1280, 720, ImageFormat.YUV_420_888, 5);
                         }
-                        param.args[0] = Arrays.asList(HookMain.c2_image_reader.getSurface());
+                        param.args[0] = Collections.singletonList(HookMain.c2_image_reader.getSurface());
                     }
                 });
             }
