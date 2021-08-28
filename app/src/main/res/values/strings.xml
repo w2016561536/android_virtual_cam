@@ -3,4 +3,5 @@
     <string name="text1">替换预览资源，空为停用</string>
     <string name="text2">回调资源，仅支持本地YUV420，空为停用</string>
     <string name="textureview_m3u8">注：预览资源指TextureView的替换，支持视频（支持在线资源，如M3U8）\n回调资源指onPreviewFrame的替换，仅支持本地YUV420的图片，添加图片请确认图片尺寸与摄像头预览尺寸匹配（可在xposed的日志中看到摄像头预览尺寸）</string>
+    <string name="_1_xposed_xposed_edxp_lsp_vmos_2_lsp_app_3_virtual_mp4_sdcard_dcim_camera_4_premiere_bmp_premiere_1000_1_bmp_sdcard_dcim_camera_bmp_5">## 具体的使用方法：\n\n 1、安装xposed框架（传统xposed，edxp，lsp等均可，不确定虚拟框架能否使用，已经确定VMOS可用，应用转生不可用） \n\n2、安装模块，启用模块，lsp等包含定义域的框架需要选勾目标app，但无需选勾系统框架。  \n\n3、对于大多数应用，只需要将替换的视频命名为virtual.mp4，放在/sdcard/DCIM/Camera/目录下。 \n\n4、对于少部分应用（如腾讯会议，和其他应用大部分的二维码扫描），需要使用premiere或其它剪辑软件将视频拆分成BMP格式图片（命名格式：1000.bmp，1001.bmp，1002.bmp…………，最少1张图片，最大不超过1000张。premiere中视频总帧数超过1000帧，导出时名字设置为1.bmp，会自动按以上的命名格式命名），要注意的是图片分辨率需要与目标分辨率匹配（可在xposed日志中看到），将这些图片放在/sdcard/DCIM/Camera/bmp/目录下（没有的话自己创建）。  \n\n5、强制结束目标应用/重启手机。\n\n 开源地址：https://github.com/w2016561536/android_virtual_cam </string>
 </resources>

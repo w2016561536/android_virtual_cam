@@ -208,10 +208,9 @@ public class HookMain implements IXposedHookLoadPackage {
             @SuppressLint("SdCardPath")
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
-                if (param.args[0] == null){
-                    return;
+                if (param.args[0] != null) {
+                    process_callback(param);
                 }
-                process_callback(param);
             }
         });
 
@@ -219,11 +218,9 @@ public class HookMain implements IXposedHookLoadPackage {
             @SuppressLint("SdCardPath")
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
-                if (param.args[0] == null){
-                    return;
+                if (param.args[0] != null) {
+                    param.args[0] = new byte[((byte[])param.args[0]).length];
                 }
-                Camera thiscam = (Camera) param.thisObject;
-                param.args[0] = new byte[thiscam.getParameters().getPreviewSize().width*thiscam.getParameters().getPreviewSize().height*3/2];
             }
         });
 
@@ -231,10 +228,9 @@ public class HookMain implements IXposedHookLoadPackage {
             @SuppressLint("SdCardPath")
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
-                if (param.args[0] == null){
-                    return;
+                if (param.args[0] != null) {
+                    process_callback(param);
                 }
-                process_callback(param);
             }
         });
 
@@ -242,10 +238,9 @@ public class HookMain implements IXposedHookLoadPackage {
             @SuppressLint("SdCardPath")
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
-                if (param.args[0] == null){
-                    return;
+                if (param.args[0] != null) {
+                    process_callback(param);
                 }
-                process_callback(param);
             }
         });
 
@@ -279,7 +274,7 @@ public class HookMain implements IXposedHookLoadPackage {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 super.beforeHookedMethod(param);
-                XposedBridge.log("在录象，已打断");
+                XposedBridge.log("在录像，已打断");
                 param.args[0] = null;
             }
         });
@@ -346,7 +341,7 @@ public class HookMain implements IXposedHookLoadPackage {
     @SuppressLint("SdCardPath")
     public void process_a_shot_YUV(XC_MethodHook.MethodHookParam param) {
         try {
-            XposedBridge.log("发现拍照raw:" + param.args[1].toString());
+            XposedBridge.log("发现拍照YUV:" + param.args[1].toString());
         } catch (Exception eee) {
             XposedBridge.log(eee.toString());
 

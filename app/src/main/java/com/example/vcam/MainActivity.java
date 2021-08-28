@@ -26,21 +26,5 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button button = (Button) findViewById(R.id.button);
-        EditText viewt1 =(EditText) findViewById(R.id.editTextTextPersonName);
-        SharedPreferences stored_id = getSharedPreferences("camera_id", Context.MODE_PRIVATE);
-        String Texture_path = stored_id.getString("id","");
-
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View viewa) {
-                String text_string = viewt1.getText().toString();
-                SharedPreferences.Editor ideditor = stored_id.edit();
-                ideditor.putString("id",text_string);
-                ideditor.commit();
-                Toast Toast1 =Toast.makeText(getApplicationContext(),"已保存",Toast.LENGTH_SHORT);
-                Toast1.show();
-            }
-        });
     }
 }
