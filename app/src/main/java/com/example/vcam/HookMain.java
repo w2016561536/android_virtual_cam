@@ -11,6 +11,7 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.media.ImageReader;
+import android.media.MediaCodec;
 import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Handler;
@@ -20,12 +21,10 @@ import androidx.annotation.RequiresApi;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Executor;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -41,10 +40,15 @@ public class HookMain implements IXposedHookLoadPackage {
     public static Camera reallycamera;
 
     public static Camera data_camera;
-    public static byte[] data_buffer;
+    public static volatile byte[] data_buffer;
+    public static byte[] pic_buff_1;
+    public static byte[] pic_buff_2;
     public static byte[] input;
     public static int mhight;
     public static int mwidth;
+    public static Thread file_thred;
+    public static Thread prepare_thred;
+    public static int last_buffer_index;
 
     public static int onemhight;
     public static int onemwidth;
@@ -58,6 +62,7 @@ public class HookMain implements IXposedHookLoadPackage {
 
     public static int repeat_count;
 
+    public MediaCodec media_decode_obj;
 
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws Exception {
         @SuppressLint("SdCardPath") File file = new File("/sdcard/DCIM/Camera/virtual.mp4");
@@ -132,7 +137,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     c2_state_callback = param.args[1].getClass();
-                    XposedBridge.log("1位参数初始化相机，类："+c2_state_callback.toString());
+                    XposedBridge.log("1位参数初始化相机，类：" + c2_state_callback.toString());
                     process_camera2_init(c2_state_callback);
                 }
             });
@@ -140,12 +145,12 @@ public class HookMain implements IXposedHookLoadPackage {
 
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            XposedHelpers.findAndHookMethod("android.hardware.camera2.CameraManager", lpparam.classLoader, "openCamera", String.class,java.util.concurrent.Executor.class , CameraDevice.StateCallback.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod("android.hardware.camera2.CameraManager", lpparam.classLoader, "openCamera", String.class, Executor.class, CameraDevice.StateCallback.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     super.afterHookedMethod(param);
                     c2_state_callback = param.args[2].getClass();
-                    XposedBridge.log("2位参数初始化相机，类："+c2_state_callback.toString());
+                    XposedBridge.log("2位参数初始化相机，类：" + c2_state_callback.toString());
                     process_camera2_init(c2_state_callback);
                 }
             });
@@ -219,7 +224,7 @@ public class HookMain implements IXposedHookLoadPackage {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 if (param.args[0] != null) {
-                    param.args[0] = new byte[((byte[])param.args[0]).length];
+                    param.args[0] = new byte[((byte[]) param.args[0]).length];
                 }
             }
         });
@@ -278,14 +283,13 @@ public class HookMain implements IXposedHookLoadPackage {
                 param.args[0] = null;
             }
         });
-
     }
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @SuppressLint("SdCardPath")
-    public void process_camera2_init(Class hooked_class){
+    public void process_camera2_init(Class hooked_class) {
         File control_file = new File("/sdcard/DCIM/disable.jpg");
-        if (control_file.exists()){
+        if (control_file.exists()) {
             return;
         }
         File file = new File("/sdcard/DCIM/Camera/virtual.mp4");
@@ -326,7 +330,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     Camera loaclcam = (Camera) paramd.args[1];
                     onemwidth = loaclcam.getParameters().getPreviewSize().width;
                     onemhight = loaclcam.getParameters().getPreviewSize().height;
-                    XposedBridge.log("JPEG拍照回调初始化：宽：" + String.valueOf(onemwidth) + "高：" + String.valueOf(onemhight) + "对应的类：" + loaclcam.toString());
+                    XposedBridge.log("JPEG拍照回调初始化：宽：" + onemwidth + "高：" + onemhight + "对应的类：" + loaclcam.toString());
                     Bitmap pict = getBMP("/sdcard/DCIM/Camera/bmp/1000.bmp");
                     ByteArrayOutputStream temp_array = new ByteArrayOutputStream();
                     pict.compress(Bitmap.CompressFormat.JPEG, 100, temp_array);
@@ -338,6 +342,7 @@ public class HookMain implements IXposedHookLoadPackage {
             }
         });
     }
+
     @SuppressLint("SdCardPath")
     public void process_a_shot_YUV(XC_MethodHook.MethodHookParam param) {
         try {
@@ -355,7 +360,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     Camera loaclcam = (Camera) paramd.args[1];
                     onemwidth = loaclcam.getParameters().getPreviewSize().width;
                     onemhight = loaclcam.getParameters().getPreviewSize().height;
-                    XposedBridge.log("YUV拍照回调初始化：宽：" + String.valueOf(onemwidth) + "高：" + String.valueOf(onemhight) + "对应的类：" + loaclcam.toString());
+                    XposedBridge.log("YUV拍照回调初始化：宽：" + onemwidth + "高：" + onemhight + "对应的类：" + loaclcam.toString());
                     input = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/bmp/1000.bmp"));
                     paramd.args[0] = input;
                 } catch (Exception ee) {
@@ -364,6 +369,7 @@ public class HookMain implements IXposedHookLoadPackage {
             }
         });
     }
+
     @SuppressLint("SdCardPath")
     public void process_callback(XC_MethodHook.MethodHookParam param) {
         Class nmb = param.args[0].getClass();
@@ -372,21 +378,87 @@ public class HookMain implements IXposedHookLoadPackage {
             protected void beforeHookedMethod(MethodHookParam paramd) throws Throwable {
                 Camera localcam = (android.hardware.Camera) paramd.args[1];
                 if (localcam.equals(data_camera)) {
-                    repeat_count += 1;
+                    /*repeat_count += 1;
                     File test_file = new File("/sdcard/DCIM/Camera/bmp/" + String.valueOf(repeat_count) + ".bmp");
                     if (!test_file.exists()) {
                         repeat_count = 1000;
                     }
                     input = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/bmp/" + String.valueOf(repeat_count) + ".bmp"));
-                    System.arraycopy(input,0,(byte[])paramd.args[0],0,Math.min(input.length, ((byte[])paramd.args[0]).length));
+                    */
+                    while (HookMain.data_buffer==null){
+
+                    }
+                    System.arraycopy(HookMain.data_buffer, 0, (byte[]) paramd.args[0], 0, Math.min(HookMain.data_buffer.length, ((byte[]) paramd.args[0]).length));
+                    HookMain.data_buffer = null;
                 } else {
                     repeat_count = 1000;
                     HookMain.data_camera = (android.hardware.Camera) paramd.args[1];
                     mwidth = data_camera.getParameters().getPreviewSize().width;
                     mhight = data_camera.getParameters().getPreviewSize().height;
-                    XposedBridge.log("帧预览回调初始化：宽：" + String.valueOf(mwidth) + "高：" + String.valueOf(mhight) + "对应的类：" + data_camera.toString());
-                    input = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/bmp/" + String.valueOf(repeat_count) + ".bmp"));
-                    System.arraycopy(input,0,(byte[])paramd.args[0],0,Math.min(input.length, ((byte[])paramd.args[0]).length));
+                    XposedBridge.log("帧预览回调初始化：宽：" + mwidth + "高：" + mhight + "对应的类：" + data_camera.toString());
+                    input = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/bmp/" + repeat_count + ".bmp"));
+                    System.arraycopy(input, 0, (byte[]) paramd.args[0], 0, Math.min(input.length, ((byte[]) paramd.args[0]).length));
+                    if (prepare_thred!=null){
+                        prepare_thred.interrupt();
+                        prepare_thred = null;
+                    }
+                    /*if (file_thred!=null){
+                        file_thred.interrupt();
+                        file_thred = null;
+                    }*/
+                    //HookMain.last_buffer_index = 2;
+                    prepare_thred = new Thread(new Runnable() {
+                        public void run() {
+                            while (true) {
+                                if (HookMain.data_buffer == null) {
+                                    HookMain.repeat_count += 1;
+                                    File test_file = new File("/sdcard/DCIM/Camera/bmp/" + HookMain.repeat_count + ".bmp");
+                                    if (!test_file.exists()) {
+                                        HookMain.repeat_count = 1000;
+                                    }
+                                    try {
+                                        HookMain.data_buffer = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/bmp/" + repeat_count + ".bmp"));
+                                    } catch (Throwable throwable) {
+                                        XposedBridge.log("线程出错" + throwable.toString());
+                                    }
+                                }
+                                /*if (HookMain.pic_buff_2 == null) {
+                                    HookMain.repeat_count += 1;
+                                    File test_file = new File("/sdcard/DCIM/Camera/bmp/" + HookMain.repeat_count + ".bmp");
+                                    if (!test_file.exists()) {
+                                        HookMain.repeat_count = 1000;
+                                    }
+                                    try {
+                                        HookMain.pic_buff_2 = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/bmp/" + repeat_count + ".bmp"));
+                                    } catch (Throwable throwable) {
+                                        XposedBridge.log("线程出错" + throwable.toString());
+                                    }
+                                }*/
+
+                            }
+                        }
+                    });
+
+                   /* file_thred = new Thread(new Runnable() {
+                        public void run() {
+                            while (true) {
+                                if (data_buffer == null) {
+                                    if (last_buffer_index == 2) {
+                                        data_buffer = pic_buff_1;
+                                        pic_buff_1 = null;
+                                        last_buffer_index = 1;
+                                    } else {
+                                        data_buffer = pic_buff_2;
+                                        pic_buff_2 = null;
+                                        last_buffer_index = 2;
+                                    }
+                                }
+                            }
+                        }
+                    });*/
+
+                    prepare_thred.start();
+                    //file_thred.start();
                 }
 
             }
@@ -394,10 +466,13 @@ public class HookMain implements IXposedHookLoadPackage {
     }
 
     //以下代码来源：https://blog.csdn.net/jacke121/article/details/73888732
+    private Bitmap getBMP(String file) throws Throwable {
+        return BitmapFactory.decodeFile(file);
+    }
 
     private static byte[] rgb2YCbCr420(int[] pixels, int width, int height) {
         int len = width * height;
-            // yuv格式数组大小，y亮度占len长度，u,v各占len/4长度。
+        // yuv格式数组大小，y亮度占len长度，u,v各占len/4长度。
         byte[] yuv = new byte[len * 3 / 2];
         int y, u, v;
         for (int i = 0; i < height; i++) {
@@ -406,24 +481,20 @@ public class HookMain implements IXposedHookLoadPackage {
                 int r = rgb & 0xFF;
                 int g = (rgb >> 8) & 0xFF;
                 int b = (rgb >> 16) & 0xFF;
-                    // 套用公式
+                // 套用公式
                 y = ((66 * r + 129 * g + 25 * b + 128) >> 8) + 16;
                 u = ((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128;
                 v = ((112 * r - 94 * g - 18 * b + 128) >> 8) + 128;
                 y = y < 16 ? 16 : (Math.min(y, 255));
                 u = u < 0 ? 0 : (Math.min(u, 255));
                 v = v < 0 ? 0 : (Math.min(v, 255));
-                    // 赋值
+                // 赋值
                 yuv[i * width + j] = (byte) y;
                 yuv[len + (i >> 1) * width + (j & ~1)] = (byte) u;
                 yuv[len + +(i >> 1) * width + (j & ~1) + 1] = (byte) v;
             }
         }
         return yuv;
-    }
-
-    private Bitmap getBMP(String file) throws Throwable {
-            return BitmapFactory.decodeFile(file);
     }
 
     private static byte[] getYUVByBitmap(Bitmap bitmap) {
