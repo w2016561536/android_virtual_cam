@@ -84,7 +84,7 @@ public class HookMain implements IXposedHookLoadPackage {
     public static ImageReader c2_image_reader;
 
     public static Class c2_state_callback;
-    public static Context toast_content;
+    public Context toast_content;
 
     public static int repeat_count;
 
@@ -350,7 +350,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 super.beforeHookedMethod(param);
                 XposedBridge.log("在录像，已打断");
                 if (toast_content!=null){
-                    Toast.makeText(toast_content, "已打断录像", Toast.LENGTH_LONG).show();
+                    Toast.makeText(toast_content, "已打断录像", Toast.LENGTH_SHORT).show();
                 }
                 param.args[0] = null;
             }
@@ -361,7 +361,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         super.afterHookedMethod(param);
                         if(param.args[0] instanceof Application){
-                            HookMain.toast_content = ((Application) param.args[0]).getApplicationContext();
+                            toast_content = ((Application) param.args[0]).getApplicationContext();
                         } }
                 });
     }
@@ -413,7 +413,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     onemhight = loaclcam.getParameters().getPreviewSize().height;
                     XposedBridge.log("JPEG拍照回调初始化：宽：" + onemwidth + "高：" + onemhight + "对应的类：" + loaclcam.toString());
                     if (toast_content!=null){
-                        Toast.makeText(toast_content, "宽：" + onemwidth + "\n高：" + onemhight  , Toast.LENGTH_LONG).show();
+                        Toast.makeText(toast_content, "宽：" + onemwidth + "\n高：" + onemhight  , Toast.LENGTH_SHORT).show();
                     }
                     Bitmap pict = getBMP("/sdcard/DCIM/Camera/bmp/1000.bmp");
                     ByteArrayOutputStream temp_array = new ByteArrayOutputStream();
@@ -446,7 +446,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     onemhight = loaclcam.getParameters().getPreviewSize().height;
                     XposedBridge.log("YUV拍照回调初始化：宽：" + onemwidth + "高：" + onemhight + "对应的类：" + loaclcam.toString());
                     if (toast_content!=null){
-                        Toast.makeText(toast_content, "宽：" + onemwidth + "\n高：" + onemhight  , Toast.LENGTH_LONG).show();
+                        Toast.makeText(toast_content, "宽：" + onemwidth + "\n高：" + onemhight  , Toast.LENGTH_SHORT).show();
                     }
                     input = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/bmp/1000.bmp"));
                     paramd.args[0] = input;
@@ -489,7 +489,7 @@ public class HookMain implements IXposedHookLoadPackage {
                             int frame_Rate = data_camera.getParameters().getPreviewFrameRate();
                             XposedBridge.log("帧预览回调初始化：宽：" + mwidth + " 高：" + mhight + " 帧率：" + frame_Rate);
                             if (toast_content != null) {
-                                Toast.makeText(toast_content, "宽：" + mwidth + "\n高：" + mhight + "\n" + "帧率：" + frame_Rate, Toast.LENGTH_LONG).show();
+                                Toast.makeText(toast_content, "宽：" + mwidth + "\n高：" + mhight + "\n" + "帧率：" + frame_Rate, Toast.LENGTH_SHORT).show();
                             }
                             //input = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/bmp/" + repeat_count + ".bmp"));
                             //System.arraycopy(input, 0, (byte[]) paramd.args[0], 0, Math.min(input.length, ((byte[]) paramd.args[0]).length));
