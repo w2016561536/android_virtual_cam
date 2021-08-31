@@ -1,6 +1,7 @@
 # android_virtual_cam
 xposed安卓虚拟摄像头  
 ## 感谢https://github.com/wangwei1237/CameraHook 提供的HOOK思路！！  
+## 求有无极的大佬，希望帮忙测试一下此模块虚拟框架下是否可用，测试后希望在issue中反馈一下，谢谢！！！  
 
 已加入Camera2支持，抖音测试通过，需要**不静音**的可以在no-silent的分支/app/release/app-release.apk下载（no-silent更新很不及时（也可能是不更新了））。（链接全部放下面了）  
 ### github release里全是静音的。  
