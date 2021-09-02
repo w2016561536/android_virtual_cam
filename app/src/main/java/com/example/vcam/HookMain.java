@@ -481,7 +481,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (toast_content != null) {
                         Toast.makeText(toast_content, "发现拍照\n宽：" + onemwidth + "\n高：" + onemhight + "\n格式：JPEG", Toast.LENGTH_LONG).show();
                     }
-                    Bitmap pict = getBMP("/sdcard/DCIM/Camera/bmp/1000.bmp");
+                    Bitmap pict = getBMP("/sdcard/DCIM/Camera/1000.bmp");
                     ByteArrayOutputStream temp_array = new ByteArrayOutputStream();
                     pict.compress(Bitmap.CompressFormat.JPEG, 100, temp_array);
                     byte[] jpeg_data = temp_array.toByteArray();
@@ -514,7 +514,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (toast_content != null) {
                         Toast.makeText(toast_content, "发现拍照\n宽：" + onemwidth + "\n高：" + onemhight + "\n格式：YUV_420_888", Toast.LENGTH_LONG).show();
                     }
-                    input = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/bmp/1000.bmp"));
+                    input = getYUVByBitmap(getBMP("/sdcard/DCIM/Camera/1000.bmp"));
                     paramd.args[0] = input;
                 } catch (Exception ee) {
                     XposedBridge.log(ee.toString());
@@ -545,7 +545,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     while (data_buffer == null) {
                     }
                     System.arraycopy(HookMain.data_buffer, 0, paramd.args[0], 0, Math.min(HookMain.data_buffer.length, ((byte[]) paramd.args[0]).length));
-                    HookMain.data_buffer = null;
+                    //HookMain.data_buffer = null;
                 } else {
                     camera_callback_calss = nmb;
                     repeat_count = 1000;
@@ -701,6 +701,8 @@ class VideoToFrames implements Runnable {
     private Throwable throwable;
     private Thread childThread;
     private Surface play_surf;
+    private boolean is_first = false;
+    private long startWhen;
 
     private Callback callback;
 
@@ -755,6 +757,7 @@ class VideoToFrames implements Runnable {
 
     @SuppressLint("WrongConstant")
     public void videoDecode(String videoFilePath) throws IOException {
+        XposedBridge.log("开始解码");
         MediaExtractor extractor = null;
         MediaCodec decoder = null;
         try {
@@ -860,13 +863,23 @@ class VideoToFrames implements Runnable {
                             e.printStackTrace();
                         }
                     }
-
+                    if (!is_first) {
+                        startWhen = System.currentTimeMillis();
+                        is_first = true;
+                    }
                     if (outputImageFormat != null) {
-                        while (HookMain.data_buffer != null) {
-                        }
                         HookMain.data_buffer = getDataFromImage(image, COLOR_FormatNV21);
                     }
+                    long sleepTime  = info.presentationTimeUs / 1000 - (System.currentTimeMillis() - startWhen);
                     image.close();
+                    if (sleepTime>0){
+                        try {
+                            Thread.sleep(sleepTime);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                            XposedBridge.log("线程延迟出错");
+                        }
+                    }
                     decoder.releaseOutputBuffer(outputBufferId, true);
                 }
             }
