@@ -701,8 +701,6 @@ class VideoToFrames implements Runnable {
     private Throwable throwable;
     private Thread childThread;
     private Surface play_surf;
-    private boolean is_first = false;
-    private long startWhen;
 
     private Callback callback;
 
@@ -817,6 +815,8 @@ class VideoToFrames implements Runnable {
     }
 
     private void decodeFramesToImage(MediaCodec decoder, MediaExtractor extractor, MediaFormat mediaFormat) {
+        boolean is_first = false;
+        long startWhen = 0;
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
         decoder.configure(mediaFormat, play_surf, null, 0);
         boolean sawInputEOS = false;
