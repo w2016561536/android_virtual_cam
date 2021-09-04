@@ -6,7 +6,7 @@ xposed安卓虚拟摄像头
 已加入Camera2支持，抖音测试通过，需要**不静音**的可以在no-silent的分支/app/release/app-release.apk下载（no-silent更新很不及时（也可能是不更新了））。（链接全部放下面了）  
 ### github release里全是静音的。  
 
-## 具体的使用方法（现在全部在Camera1里了，Camera里找东西真麻烦）：  
+## 具体的使用方法：   
 1、安装xposed框架（传统xposed，edxp，lsposed等均可，不确定虚拟框架能否使用，已经确定VMOS可用，应用转生不可用）    
 2、安装模块，启用模块，lsposed等包含定义域的框架需要选勾目标app，但无需选勾系统框架。  
 3、将需要替换的视频命名为virtual.mp4，放在/sdcard/DCIM/Camera1/目录下。（前置摄像头需要水平翻转后右旋90°保存，onPreviewFrame需要匹配分辨率）  
