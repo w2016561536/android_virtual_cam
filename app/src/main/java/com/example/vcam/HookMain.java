@@ -479,7 +479,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (toast_content != null) {
                         Toast.makeText(toast_content, "发现拍照\n宽：" + onemwidth + "\n高：" + onemhight + "\n格式：JPEG", Toast.LENGTH_LONG).show();
                     }
-                    Bitmap pict = getBMP(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera/1000.bmp");
+                    Bitmap pict = getBMP(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/1000.bmp");
                     ByteArrayOutputStream temp_array = new ByteArrayOutputStream();
                     pict.compress(Bitmap.CompressFormat.JPEG, 100, temp_array);
                     byte[] jpeg_data = temp_array.toByteArray();
@@ -511,7 +511,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (toast_content != null) {
                         Toast.makeText(toast_content, "发现拍照\n宽：" + onemwidth + "\n高：" + onemhight + "\n格式：YUV_420_888", Toast.LENGTH_LONG).show();
                     }
-                    input = getYUVByBitmap(getBMP(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera/1000.bmp"));
+                    input = getYUVByBitmap(getBMP(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/1000.bmp"));
                     paramd.args[0] = input;
                 } catch (Exception ee) {
                     XposedBridge.log(ee.toString());
