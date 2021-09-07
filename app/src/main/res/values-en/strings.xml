@@ -12,6 +12,8 @@
 create disable.jpg under /sdcard/DCIM/Camera1/ to disable this method hook.\n
 ##how to get resolution ??(only hook onPreviewFrame and image capture need it)?
 open camera in target app, and you can find resolution in toast message.\n
+##Needn't mute?
+Create no-silent.jpg under /sdcard/DCIM/Camera1/, and it will play sounds.\n
 open source repo link : https://github.com/w2016561536/android_virtual_cam \n
 DO NOT USE FOR ANY ILLEAGLE INTENTION!!YOU NEED TO TAKE ALL RESPONSIBILITY AND CONSEQUENCE!!"
     </string>

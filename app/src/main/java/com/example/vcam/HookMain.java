@@ -128,7 +128,10 @@ public class HookMain implements IXposedHookLoadPackage {
 
                     HookMain.mMedia.setSurface(HookMain.msurf);
 
-                    HookMain.mMedia.setVolume(0, 0);
+                    File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
+                    if (!sfile.exists()){
+                        HookMain.mMedia.setVolume(0, 0);
+                    }
                     HookMain.mMedia.setLooping(true);
 
                     HookMain.mMedia.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
@@ -261,7 +264,10 @@ public class HookMain implements IXposedHookLoadPackage {
                         }*/
 
                     HookMain.c2_player.setSurface(HookMain.c2_ori_Surf);
-                    HookMain.c2_player.setVolume(0, 0);
+                    File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
+                    if (!sfile.exists()){
+                        HookMain.c2_player.setVolume(0, 0);
+                    }
                     HookMain.c2_player.setLooping(true);
 
 
@@ -400,7 +406,10 @@ public class HookMain implements IXposedHookLoadPackage {
 
                     HookMain.mplayer1.setSurface(HookMain.ori_holder.getSurface());
                     mcamera1.setPreviewTexture(c1_fake_texture);
-                    HookMain.mplayer1.setVolume(0, 0);
+                    File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
+                    if (!sfile.exists()){
+                        HookMain.mplayer1.setVolume(0, 0);
+                    }
                     HookMain.mplayer1.setLooping(true);
 
                     HookMain.mplayer1.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
