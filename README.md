@@ -39,3 +39,4 @@ GitHub： https://github.com/w2016561536/android_virtual_cam/blob/master/app/rel
 gitee（中国大陆建议此点）： https://gitee.com/w2016561536/android_virtual_cam/blob/master/app/release/app-release.apk  
 
 # 请勿用于非法用途，任何法律问题与作者无关。  
+# DO NOT USE FOR ANY ILLEAGLE INTENTION!!YOU NEED TO TAKE ALL RESPONSIBILITY AND CONSEQUENCE!!"
