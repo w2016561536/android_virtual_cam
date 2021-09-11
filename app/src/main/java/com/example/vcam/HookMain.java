@@ -231,11 +231,15 @@ public class HookMain implements IXposedHookLoadPackage {
                     param.args[0] = c2_virtual_surface;
                 }else{
                     String surfaceInfo = param.args[0].toString();
-                    /*if (surfaceInfo.contains("Surface(name=null)")){
-                        c2_reader_Surfcae = (Surface) param.args[0];
+                    if (surfaceInfo.contains("Surface(name=null)")){
+                        if (c2_reader_Surfcae == null) {
+                            c2_reader_Surfcae = (Surface) param.args[0];
+                        }
                     }else {
-                        c2_preview_Surfcae = (Surface) param.args[0];
-                    }*/
+                        if (c2_preview_Surfcae == null) {
+                            c2_preview_Surfcae = (Surface) param.args[0];
+                        }
+                    }
                     XposedBridge.log("多个添加目标："+param.args[0].toString());
                     param.args[0] = c2_virtual_surface;
                 }
