@@ -57,10 +57,12 @@ public class HookMain implements IXposedHookLoadPackage {
     public static byte[] input;
     public static int mhight;
     public static int mwidth;
+    public static boolean is_someone_playing;
+    public static boolean is_hooked;
     //public static Thread file_thred;
     //public static Thread prepare_thred;
     public static VideoToFrames hw_decode_obj;
-    //public static VideoToFrames c2_hw_decode_obj;
+    public static VideoToFrames c2_hw_decode_obj;
     public static SurfaceTexture c1_fake_texture;
     public static Surface c1_fake_surface;
     public static SurfaceHolder ori_holder;
@@ -71,10 +73,12 @@ public class HookMain implements IXposedHookLoadPackage {
     public static int onemwidth;
     public static Class camera_callback_calss;
 
-    public static Surface c2_ori_Surf;
+    public static Surface c2_preview_Surfcae;
+    public static Surface c2_reader_Surfcae;
     public static MediaPlayer c2_player;
     public static CaptureRequest.Builder c2_builder;
     public static ImageReader c2_image_reader;
+    public static Surface c2_virtual_surface;
 
     public static Class c2_state_callback;
     public Context toast_content;
@@ -89,6 +93,10 @@ public class HookMain implements IXposedHookLoadPackage {
             XposedHelpers.findAndHookMethod(cameraclass, "setPreviewTexture", SurfaceTexture.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
+                    if (is_hooked ){
+                        is_hooked = false;
+                        return;
+                    }
                     if (param.args[0] == null) {
                         return;
                     }
@@ -129,8 +137,11 @@ public class HookMain implements IXposedHookLoadPackage {
                     HookMain.mMedia.setSurface(HookMain.msurf);
 
                     File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
-                    if (!sfile.exists()){
+                    if (!(sfile.exists() && (!is_someone_playing))){
                         HookMain.mMedia.setVolume(0, 0);
+                        is_someone_playing =false;
+                    }else {
+                        is_someone_playing = true;
                     }
                     HookMain.mMedia.setLooping(true);
 
@@ -198,13 +209,45 @@ public class HookMain implements IXposedHookLoadPackage {
             protected void beforeHookedMethod(MethodHookParam param) {
                 File file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
                 File control_file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/disable.jpg");
+                if ((!file.exists()) && control_file.exists() ){
+                    if (toast_content != null) {
+                        Toast.makeText(toast_content, "disable.jpg存在，已禁用C2", Toast.LENGTH_LONG).show();
+                    }
+                    return;
+                }
+                if (HookMain.c2_builder == null || (!param.thisObject.equals(HookMain.c2_builder))){
+                    HookMain.c2_builder = (CaptureRequest.Builder) param.thisObject;
+                    c2_reader_Surfcae = null;
+                    c2_preview_Surfcae = null;
+                    String surfaceInfo = param.args[0].toString();
+                    if (surfaceInfo.contains("Surface(name=null)")){
+                        c2_reader_Surfcae = (Surface) param.args[0];
+                    }else {
+                        c2_preview_Surfcae = (Surface) param.args[0];
+                    }
+                    HookMain.c2_image_reader = ImageReader.newInstance(1280,720,ImageFormat.YUV_420_888,5);
+                    c2_virtual_surface=c2_image_reader.getSurface();
+                    XposedBridge.log("添加目标："+param.args[0].toString());
+                    param.args[0] = c2_virtual_surface;
+                }else{
+                    String surfaceInfo = param.args[0].toString();
+                    /*if (surfaceInfo.contains("Surface(name=null)")){
+                        c2_reader_Surfcae = (Surface) param.args[0];
+                    }else {
+                        c2_preview_Surfcae = (Surface) param.args[0];
+                    }*/
+                    XposedBridge.log("多个添加目标："+param.args[0].toString());
+                    param.args[0] = c2_virtual_surface;
+                }
+
+/*
                 if (file.exists() && (!control_file.exists())) {
                     if (HookMain.c2_builder != null && HookMain.c2_builder.equals(param.thisObject)) {
                         param.args[0] = HookMain.c2_image_reader.getSurface();
-                        XposedBridge.log("发现重复" + HookMain.c2_builder.toString());
+                        XposedBridge.log("发现重复" + HookMain.c2_builder.toString() +"都大的" +param.args[0].toString());
                         return;
                     } else {
-                        XposedBridge.log("创建C2预览");
+                        XposedBridge.log("创建C2预览" +  param.args[0].toString());
                     }
                     HookMain.c2_builder = (CaptureRequest.Builder) param.thisObject;
                     HookMain.c2_ori_Surf = (Surface) param.args[0];
@@ -222,7 +265,7 @@ public class HookMain implements IXposedHookLoadPackage {
                         HookMain.c2_player = new MediaPlayer();
                     }
 
-                        /*if (c2_hw_decode_cb != null){
+                        if (c2_hw_decode_cb != null){
                             c2_hw_decode_cb =null;
                         }
                         c2_hw_decode_cb = new VideoToFrames.Callback() {
@@ -261,7 +304,7 @@ public class HookMain implements IXposedHookLoadPackage {
                             c2_hw_decode_obj.decode(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
                         }catch (Throwable throwable){
                             throwable.printStackTrace();
-                        }*/
+                        }
 
                     HookMain.c2_player.setSurface(HookMain.c2_ori_Surf);
                     File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
@@ -286,7 +329,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (toast_content != null) {
                         Toast.makeText(toast_content, "不存在替换视频或已禁用C2", Toast.LENGTH_SHORT).show();
                     }
-                }
+                }*/
             }
         });
 
@@ -405,10 +448,14 @@ public class HookMain implements IXposedHookLoadPackage {
                     }
 
                     HookMain.mplayer1.setSurface(HookMain.ori_holder.getSurface());
+                    is_hooked =true;
                     mcamera1.setPreviewTexture(c1_fake_texture);
                     File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
-                    if (!sfile.exists()){
+                    if (!(sfile.exists() && (!is_someone_playing))){
                         HookMain.mplayer1.setVolume(0, 0);
+                        is_someone_playing =false;
+                    }else {
+                        is_someone_playing = true;
                     }
                     HookMain.mplayer1.setLooping(true);
 
@@ -428,6 +475,7 @@ public class HookMain implements IXposedHookLoadPackage {
 
                 } else {
                     XposedBridge.log("发现重复Surfaceview");
+                    is_hooked = true;
                     mcamera1.setPreviewTexture(c1_fake_texture);
                 }
                 param.setResult(null);
@@ -435,7 +483,6 @@ public class HookMain implements IXposedHookLoadPackage {
         });
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public void process_camera2_init(Class hooked_class) {
         File control_file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/disable.jpg");
         if (control_file.exists()) {
@@ -457,10 +504,58 @@ public class HookMain implements IXposedHookLoadPackage {
                 XposedHelpers.findAndHookMethod(param.args[0].getClass(), "createCaptureSession", List.class, CameraCaptureSession.StateCallback.class, Handler.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        if (HookMain.c2_image_reader == null) {
+                        /*if (HookMain.c2_image_reader == null) {
                             HookMain.c2_image_reader = ImageReader.newInstance(1280, 720, ImageFormat.YUV_420_888, 5);
+                        }*/
+                        param.args[0] = Collections.singletonList(HookMain.c2_virtual_surface);
+                        if (c2_preview_Surfcae != null){
+                            if (HookMain.c2_player == null) {
+                                HookMain.c2_player = new MediaPlayer();
+                            } else {
+                                HookMain.c2_player.release();
+                                HookMain.c2_player = new MediaPlayer();
+                            }
+
+
+                            HookMain.c2_player.setSurface(HookMain.c2_preview_Surfcae);
+                            File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
+                            if (!sfile.exists()){
+                                HookMain.c2_player.setVolume(0, 0);
+                            }
+                            HookMain.c2_player.setLooping(true);
+
+
+                            HookMain.c2_player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                                public void onPrepared(MediaPlayer mp) {
+                                    HookMain.c2_player.start();
+                                }
+                            });
+                            try {
+                                HookMain.c2_player.setDataSource(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
+                                HookMain.c2_player.prepare();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
                         }
-                        param.args[0] = Collections.singletonList(HookMain.c2_image_reader.getSurface());
+
+
+                        if (c2_reader_Surfcae !=null){
+
+                            if (c2_hw_decode_obj != null){
+                                c2_hw_decode_obj.stopDecode();
+                                c2_hw_decode_obj =null;
+                            }
+
+                            c2_hw_decode_obj = new VideoToFrames();
+                            try {
+                                c2_hw_decode_obj.setSaveFrames(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera2/", OutputImageFormat.NV21);
+                                c2_hw_decode_obj.set_surfcae(HookMain.c2_reader_Surfcae);
+                                c2_hw_decode_obj.decode(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
+                            }catch (Throwable throwable){
+                                throwable.printStackTrace();
+                            }
+                        }
+
                     }
                 });
             }
@@ -789,26 +884,28 @@ class VideoToFrames implements Runnable {
                     if (callback != null) {
                         callback.onDecodeFrame(outputFrameCount);
                     }
-                    Image image = decoder.getOutputImage(outputBufferId);
-                    ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-                    byte[] arr = new byte[buffer.remaining()];
-                    buffer.get(arr);
-                    if (mQueue != null) {
-                        try {
-                            mQueue.put(arr);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
                     if (!is_first) {
                         startWhen = System.currentTimeMillis();
                         is_first = true;
                     }
-                    if (outputImageFormat != null) {
-                        HookMain.data_buffer = getDataFromImage(image, COLOR_FormatNV21);
+                    if (play_surf == null) {
+                        Image image = decoder.getOutputImage(outputBufferId);
+                        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+                        byte[] arr = new byte[buffer.remaining()];
+                        buffer.get(arr);
+                        if (mQueue != null) {
+                            try {
+                                mQueue.put(arr);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                        if (outputImageFormat != null) {
+                            HookMain.data_buffer = getDataFromImage(image, COLOR_FormatNV21);
+                        }
+                        image.close();
                     }
                     long sleepTime = info.presentationTimeUs / 1000 - (System.currentTimeMillis() - startWhen);
-                    image.close();
                     if (sleepTime > 0) {
                         try {
                             Thread.sleep(sleepTime);
