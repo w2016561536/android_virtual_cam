@@ -63,6 +63,7 @@ public class HookMain implements IXposedHookLoadPackage {
     //public static Thread prepare_thred;
     public static VideoToFrames hw_decode_obj;
     public static VideoToFrames c2_hw_decode_obj;
+    public static VideoToFrames c2_hw_decode_obj_1;
     public static SurfaceTexture c1_fake_texture;
     public static Surface c1_fake_surface;
     public static SurfaceHolder ori_holder;
@@ -75,6 +76,7 @@ public class HookMain implements IXposedHookLoadPackage {
 
     public static Surface c2_preview_Surfcae;
     public static Surface c2_reader_Surfcae;
+    public static Surface c2_reader_Surfcae_1;
     public static MediaPlayer c2_player;
     public static CaptureRequest.Builder c2_builder;
     public static ImageReader c2_image_reader;
@@ -207,6 +209,9 @@ public class HookMain implements IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod("android.hardware.camera2.CaptureRequest.Builder", lpparam.classLoader, "addTarget", Surface.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
+                if (param.args[0] == null){
+                    return;
+                }
                 File file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
                 File control_file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/disable.jpg");
                 if ((!file.exists()) && control_file.exists() ){
@@ -215,10 +220,11 @@ public class HookMain implements IXposedHookLoadPackage {
                     }
                     return;
                 }
-                if (HookMain.c2_builder == null || (!param.thisObject.equals(HookMain.c2_builder))){
+                if ((!param.thisObject.equals(HookMain.c2_builder))){
                     HookMain.c2_builder = (CaptureRequest.Builder) param.thisObject;
                     c2_reader_Surfcae = null;
                     c2_preview_Surfcae = null;
+                    c2_reader_Surfcae_1 = null;
                     String surfaceInfo = param.args[0].toString();
                     if (surfaceInfo.contains("Surface(name=null)")){
                         c2_reader_Surfcae = (Surface) param.args[0];
@@ -234,6 +240,10 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (surfaceInfo.contains("Surface(name=null)")){
                         if (c2_reader_Surfcae == null) {
                             c2_reader_Surfcae = (Surface) param.args[0];
+                        }else {
+                            if ((!c2_reader_Surfcae.equals(param.args[0])) && c2_reader_Surfcae_1 == null){
+                                c2_reader_Surfcae_1 = (Surface) param.args[0];
+                            }
                         }
                     }else {
                         if (c2_preview_Surfcae == null) {
@@ -555,6 +565,23 @@ public class HookMain implements IXposedHookLoadPackage {
                                 c2_hw_decode_obj.setSaveFrames(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera2/", OutputImageFormat.NV21);
                                 c2_hw_decode_obj.set_surfcae(HookMain.c2_reader_Surfcae);
                                 c2_hw_decode_obj.decode(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
+                            }catch (Throwable throwable){
+                                throwable.printStackTrace();
+                            }
+                        }
+
+                        if (c2_reader_Surfcae_1 !=null){
+
+                            if (c2_hw_decode_obj_1 != null){
+                                c2_hw_decode_obj_1.stopDecode();
+                                c2_hw_decode_obj_1 =null;
+                            }
+
+                            c2_hw_decode_obj_1 = new VideoToFrames();
+                            try {
+                                c2_hw_decode_obj_1.setSaveFrames(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera2/", OutputImageFormat.NV21);
+                                c2_hw_decode_obj_1.set_surfcae(HookMain.c2_reader_Surfcae_1);
+                                c2_hw_decode_obj_1.decode(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
                             }catch (Throwable throwable){
                                 throwable.printStackTrace();
                             }
