@@ -34,6 +34,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -69,6 +70,10 @@ public class HookMain implements IXposedHookLoadPackage {
     public static SurfaceHolder ori_holder;
     public static MediaPlayer mplayer1;
     public static Camera mcamera1;
+    public static SurfaceTexture c2_virtual_texture;
+    public static boolean is_c2_text_playing;
+    public static boolean is_c2_surf1_playing;
+    public static boolean is_c2_surf2_playing;
 
     public static int onemhight;
     public static int onemwidth;
@@ -225,16 +230,33 @@ public class HookMain implements IXposedHookLoadPackage {
                     c2_reader_Surfcae = null;
                     c2_preview_Surfcae = null;
                     c2_reader_Surfcae_1 = null;
+                    is_c2_text_playing =false;
+                    is_c2_surf1_playing =false;
+                    is_c2_surf2_playing = false;
                     String surfaceInfo = param.args[0].toString();
                     if (surfaceInfo.contains("Surface(name=null)")){
                         c2_reader_Surfcae = (Surface) param.args[0];
                     }else {
                         c2_preview_Surfcae = (Surface) param.args[0];
                     }
-                    HookMain.c2_image_reader = ImageReader.newInstance(1280,720,ImageFormat.YUV_420_888,5);
+                    if (HookMain.c2_image_reader == null) {
+                        HookMain.c2_image_reader = ImageReader.newInstance(1280, 720, ImageFormat.YUV_420_888, 5);
+                    }
+                    /*if (c2_virtual_texture != null){
+                        c2_virtual_texture.release();
+                        c2_virtual_texture = null;
+                    }
+                    c2_virtual_texture = new SurfaceTexture(155);
+                    if (c2_virtual_surface != null){
+                        c2_virtual_surface.release();
+                        c2_virtual_surface = null;
+                    }
+                    c2_virtual_surface = new Surface(c2_virtual_texture);*/
                     c2_virtual_surface=c2_image_reader.getSurface();
                     XposedBridge.log("添加目标："+param.args[0].toString());
-                    param.args[0] = c2_virtual_surface;
+                    XposedBridge.log(c2_virtual_surface.toString());
+                    param.args[0] = c2_image_reader.getSurface();
+                    process_camera2_play();
                 }else{
                     String surfaceInfo = param.args[0].toString();
                     if (surfaceInfo.contains("Surface(name=null)")){
@@ -251,7 +273,10 @@ public class HookMain implements IXposedHookLoadPackage {
                         }
                     }
                     XposedBridge.log("多个添加目标："+param.args[0].toString());
-                    param.args[0] = c2_virtual_surface;
+                    param.args[0] = c2_image_reader.getSurface();
+                    XposedBridge.log(c2_virtual_surface.toString());
+                    process_camera2_play();
+                    param.setResult(null);
                 }
 
 /*
@@ -497,6 +522,72 @@ public class HookMain implements IXposedHookLoadPackage {
         });
     }
 
+    public void process_camera2_play(){
+        if (c2_preview_Surfcae != null && (!is_c2_text_playing)){
+            if (HookMain.c2_player == null) {
+                HookMain.c2_player = new MediaPlayer();
+            } else {
+                HookMain.c2_player.release();
+                HookMain.c2_player = new MediaPlayer();
+            }
+            is_c2_text_playing = true;
+            HookMain.c2_player.setSurface(HookMain.c2_preview_Surfcae);
+            File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
+            if (!sfile.exists()){
+                HookMain.c2_player.setVolume(0, 0);
+            }
+            HookMain.c2_player.setLooping(true);
+
+
+            HookMain.c2_player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                public void onPrepared(MediaPlayer mp) {
+                    HookMain.c2_player.start();
+                }
+            });
+            try {
+                HookMain.c2_player.setDataSource(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
+                HookMain.c2_player.prepare();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+
+        if (c2_reader_Surfcae !=null && (!is_c2_surf1_playing)){
+            is_c2_surf1_playing = true;
+            if (c2_hw_decode_obj != null){
+                c2_hw_decode_obj.stopDecode();
+                c2_hw_decode_obj =null;
+            }
+
+            c2_hw_decode_obj = new VideoToFrames();
+            try {
+                c2_hw_decode_obj.setSaveFrames(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera2/", OutputImageFormat.NV21);
+                c2_hw_decode_obj.set_surfcae(HookMain.c2_reader_Surfcae);
+                c2_hw_decode_obj.decode(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
+            }catch (Throwable throwable){
+                throwable.printStackTrace();
+            }
+        }
+
+        if (c2_reader_Surfcae_1 !=null && (!is_c2_surf2_playing)){
+            is_c2_surf2_playing = true;
+            if (c2_hw_decode_obj_1 != null){
+                c2_hw_decode_obj_1.stopDecode();
+                c2_hw_decode_obj_1 =null;
+            }
+
+            c2_hw_decode_obj_1 = new VideoToFrames();
+            try {
+                c2_hw_decode_obj_1.setSaveFrames(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera2/", OutputImageFormat.NV21);
+                c2_hw_decode_obj_1.set_surfcae(HookMain.c2_reader_Surfcae_1);
+                c2_hw_decode_obj_1.decode(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
+            }catch (Throwable throwable){
+                throwable.printStackTrace();
+            }
+        }
+    }
+
     public void process_camera2_init(Class hooked_class) {
         File control_file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/disable.jpg");
         if (control_file.exists()) {
@@ -517,77 +608,13 @@ public class HookMain implements IXposedHookLoadPackage {
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 XposedHelpers.findAndHookMethod(param.args[0].getClass(), "createCaptureSession", List.class, CameraCaptureSession.StateCallback.class, Handler.class, new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        /*if (HookMain.c2_image_reader == null) {
+                    protected void beforeHookedMethod(MethodHookParam paramd) throws Throwable {
+                        if (HookMain.c2_image_reader == null) {
                             HookMain.c2_image_reader = ImageReader.newInstance(1280, 720, ImageFormat.YUV_420_888, 5);
-                        }*/
-                        param.args[0] = Collections.singletonList(HookMain.c2_virtual_surface);
-                        if (c2_preview_Surfcae != null){
-                            if (HookMain.c2_player == null) {
-                                HookMain.c2_player = new MediaPlayer();
-                            } else {
-                                HookMain.c2_player.release();
-                                HookMain.c2_player = new MediaPlayer();
-                            }
-
-
-                            HookMain.c2_player.setSurface(HookMain.c2_preview_Surfcae);
-                            File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
-                            if (!sfile.exists()){
-                                HookMain.c2_player.setVolume(0, 0);
-                            }
-                            HookMain.c2_player.setLooping(true);
-
-
-                            HookMain.c2_player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                                public void onPrepared(MediaPlayer mp) {
-                                    HookMain.c2_player.start();
-                                }
-                            });
-                            try {
-                                HookMain.c2_player.setDataSource(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
-                                HookMain.c2_player.prepare();
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
                         }
-
-
-                        if (c2_reader_Surfcae !=null){
-
-                            if (c2_hw_decode_obj != null){
-                                c2_hw_decode_obj.stopDecode();
-                                c2_hw_decode_obj =null;
-                            }
-
-                            c2_hw_decode_obj = new VideoToFrames();
-                            try {
-                                c2_hw_decode_obj.setSaveFrames(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera2/", OutputImageFormat.NV21);
-                                c2_hw_decode_obj.set_surfcae(HookMain.c2_reader_Surfcae);
-                                c2_hw_decode_obj.decode(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
-                            }catch (Throwable throwable){
-                                throwable.printStackTrace();
-                            }
-                        }
-
-                        if (c2_reader_Surfcae_1 !=null){
-
-                            if (c2_hw_decode_obj_1 != null){
-                                c2_hw_decode_obj_1.stopDecode();
-                                c2_hw_decode_obj_1 =null;
-                            }
-
-                            c2_hw_decode_obj_1 = new VideoToFrames();
-                            try {
-                                c2_hw_decode_obj_1.setSaveFrames(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera2/", OutputImageFormat.NV21);
-                                c2_hw_decode_obj_1.set_surfcae(HookMain.c2_reader_Surfcae_1);
-                                c2_hw_decode_obj_1.decode(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
-                            }catch (Throwable throwable){
-                                throwable.printStackTrace();
-                            }
-                        }
-
-                    }
+                        XposedBridge.log("来HOOK了"+HookMain.c2_image_reader.getSurface().toString());
+                        paramd.args[0] = Arrays.asList(HookMain.c2_image_reader.getSurface());
+                                            }
                 });
             }
 
