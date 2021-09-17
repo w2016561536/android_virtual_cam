@@ -55,6 +55,7 @@ public class HookMain implements IXposedHookLoadPackage {
     public static Camera reallycamera;
 
     public static Camera data_camera;
+    public static Camera start_preview_camera;
     public static volatile byte[] data_buffer;
     public static byte[] input;
     public static int mhight;
@@ -105,6 +106,9 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (param.args[0] == null) {
                         return;
                     }
+                    if (param.args[0].equals(c1_fake_texture)){
+                        return;
+                    }
                     if (reallycamera != null && reallycamera.equals(param.thisObject)) {
                         param.args[0] = HookMain.virtual_st;
                         XposedBridge.log("发现重复" + reallycamera.toString());
@@ -115,8 +119,6 @@ public class HookMain implements IXposedHookLoadPackage {
 
                     reallycamera = (Camera) param.thisObject;
                     HookMain.msurftext = (SurfaceTexture) param.args[0];
-
-
                     if (HookMain.virtual_st == null) {
                         HookMain.virtual_st = new SurfaceTexture(10);
                     } else {
@@ -124,46 +126,6 @@ public class HookMain implements IXposedHookLoadPackage {
                         HookMain.virtual_st = new SurfaceTexture(10);
                     }
                     param.args[0] = HookMain.virtual_st;
-
-                    if (HookMain.msurf == null) {
-                        HookMain.msurf = new Surface(HookMain.msurftext);
-                    } else {
-                        HookMain.msurf.release();
-                        HookMain.msurf = new Surface(HookMain.msurftext);
-                    }
-
-                    if (HookMain.mMedia == null) {
-                        HookMain.mMedia = new MediaPlayer();
-                    } else {
-                        HookMain.mMedia.release();
-                        HookMain.mMedia = new MediaPlayer();
-                    }
-
-                    HookMain.mMedia.setSurface(HookMain.msurf);
-
-                    File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
-                    if (!(sfile.exists() && (!is_someone_playing))){
-                        HookMain.mMedia.setVolume(0, 0);
-                        is_someone_playing =false;
-                    }else {
-                        is_someone_playing = true;
-                    }
-                    HookMain.mMedia.setLooping(true);
-
-                    HookMain.mMedia.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                        @Override
-                        public void onPrepared(MediaPlayer mp) {
-                            HookMain.mMedia.start();
-                        }
-                    });
-
-                    try {
-                        HookMain.mMedia.setDataSource(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
-                        HookMain.mMedia.prepare();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
                 }
             });
         } else {
@@ -348,28 +310,12 @@ public class HookMain implements IXposedHookLoadPackage {
             }
         });
 
-        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "setPreviewDisplay", SurfaceHolder.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "startPreview", new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if (!param.thisObject.equals(mcamera1)) {
-                    XposedBridge.log("创建Surfaceview预览");
-                    mcamera1 = (Camera) param.thisObject;
-                    ori_holder = (SurfaceHolder) param.args[0];
-                    if (c1_fake_texture == null) {
-                        c1_fake_texture = new SurfaceTexture(11);
-                    } else {
-                        c1_fake_texture.release();
-                        c1_fake_texture = null;
-                        c1_fake_texture = new SurfaceTexture(11);
-                    }
-
-                    if (c1_fake_surface == null) {
-                        c1_fake_surface = new Surface(c1_fake_texture);
-                    } else {
-                        c1_fake_surface.release();
-                        c1_fake_surface = null;
-                        c1_fake_surface = new Surface(c1_fake_texture);
-                    }
+                is_someone_playing = false;
+                start_preview_camera = (Camera) param.thisObject;
+                if (ori_holder != null){
 
                     if (mplayer1 == null) {
                         mplayer1 = new MediaPlayer();
@@ -378,10 +324,10 @@ public class HookMain implements IXposedHookLoadPackage {
                         mplayer1 = null;
                         mplayer1 = new MediaPlayer();
                     }
-
+                    if (!HookMain.ori_holder.getSurface().isValid() || HookMain.ori_holder == null){
+                        return;
+                    }
                     HookMain.mplayer1.setSurface(HookMain.ori_holder.getSurface());
-                    is_hooked =true;
-                    mcamera1.setPreviewTexture(c1_fake_texture);
                     File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
                     if (!(sfile.exists() && (!is_someone_playing))){
                         HookMain.mplayer1.setVolume(0, 0);
@@ -404,12 +350,75 @@ public class HookMain implements IXposedHookLoadPackage {
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-
-                } else {
-                    XposedBridge.log("发现重复Surfaceview");
-                    is_hooked = true;
-                    mcamera1.setPreviewTexture(c1_fake_texture);
                 }
+
+
+                if (msurftext != null){
+                    if (HookMain.msurf == null) {
+                        HookMain.msurf = new Surface(HookMain.msurftext);
+                    } else {
+                        HookMain.msurf.release();
+                        HookMain.msurf = new Surface(HookMain.msurftext);
+                    }
+
+                    if (HookMain.mMedia == null) {
+                        HookMain.mMedia = new MediaPlayer();
+                    } else {
+                        HookMain.mMedia.release();
+                        HookMain.mMedia = new MediaPlayer();
+                    }
+
+                    HookMain.mMedia.setSurface(HookMain.msurf);
+
+                    File sfile = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/no-silent.jpg");
+                    if (!(sfile.exists() && (!is_someone_playing))){
+                        HookMain.mMedia.setVolume(0, 0);
+                        is_someone_playing =false;
+                    }else {
+                        is_someone_playing = true;
+                    }
+                    HookMain.mMedia.setLooping(true);
+
+                    HookMain.mMedia.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                        @Override
+                        public void onPrepared(MediaPlayer mp) {
+                            HookMain.mMedia.start();
+                        }
+                    });
+
+                    try {
+                        HookMain.mMedia.setDataSource(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
+                        HookMain.mMedia.prepare();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
+
+        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "setPreviewDisplay", SurfaceHolder.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                XposedBridge.log("创建Surfaceview预览");
+                mcamera1 = (Camera) param.thisObject;
+                ori_holder = (SurfaceHolder) param.args[0];
+                if (c1_fake_texture == null) {
+                    c1_fake_texture = new SurfaceTexture(11);
+                } else {
+                    c1_fake_texture.release();
+                    c1_fake_texture = null;
+                    c1_fake_texture = new SurfaceTexture(11);
+                }
+
+                if (c1_fake_surface == null) {
+                    c1_fake_surface = new Surface(c1_fake_texture);
+                } else {
+                    c1_fake_surface.release();
+                    c1_fake_surface = null;
+                    c1_fake_surface = new Surface(c1_fake_texture);
+                }
+                is_hooked =true;
+                mcamera1.setPreviewTexture(c1_fake_texture);
                 param.setResult(null);
             }
         });
@@ -430,44 +439,8 @@ public class HookMain implements IXposedHookLoadPackage {
                         mMedia = null;
                     }
                     is_someone_playing = false;
-                }
-            }
-        });
-
-        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "stopPreview", new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) {
-                if (param.thisObject.equals(HookMain.reallycamera) || param.thisObject.equals(HookMain.data_camera) || param.thisObject.equals(HookMain.mcamera1)) {
-                    if (hw_decode_obj != null){
-                        hw_decode_obj.stopDecode();
-                    }
-                    if (mplayer1 != null){
-                        mplayer1.release();
-                        mplayer1 = null;
-                    }
-                    if (mMedia != null){
-                        mMedia.release();
-                        mMedia = null;
-                    }
-                }
-            }
-        });
-
-        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "stopPreview", new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) {
-                if (param.thisObject.equals(HookMain.reallycamera) || param.thisObject.equals(HookMain.data_camera) || param.thisObject.equals(HookMain.mcamera1)) {
-                    if (hw_decode_obj != null){
-                        hw_decode_obj.stopDecode();
-                    }
-                    if (mplayer1 != null){
-                        mplayer1.release();
-                        mplayer1 = null;
-                    }
-                    if (mMedia != null){
-                        mMedia.release();
-                        mMedia = null;
-                    }
+                    msurftext = null;
+                    msurf = null;
                 }
             }
         });
