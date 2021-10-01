@@ -52,7 +52,7 @@ public class HookMain implements IXposedHookLoadPackage {
 
     public static Camera data_camera;
     public static Camera start_preview_camera;
-    public static volatile byte[] data_buffer;
+    public static volatile byte[] data_buffer = {0};
     public static byte[] input;
     public static int mhight;
     public static int mwidth;
@@ -104,7 +104,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (param.args[0] == null) {
                         return;
                     }
-                    if (param.args[0].equals(c1_fake_texture)) {
+                    if (param.args[0].equals(c1_fake_texture)){
                         return;
                     }
                     if (reallycamera != null && reallycamera.equals(param.thisObject)) {
@@ -144,6 +144,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 if (!file.exists()) {
                     if (toast_content != null) {
                         Toast.makeText(toast_content, "不存在替换视频", Toast.LENGTH_SHORT).show();
+                        return;
                     }
                 }
                 XposedBridge.log("1位参数初始化相机，类：" + c2_state_callback.toString());
@@ -165,6 +166,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (!file.exists()) {
                         if (toast_content != null) {
                             Toast.makeText(toast_content, "不存在替换视频", Toast.LENGTH_SHORT).show();
+                            return;
                         }
                     }
                     c2_state_callback = param.args[2].getClass();
@@ -216,10 +218,12 @@ public class HookMain implements IXposedHookLoadPackage {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 XposedBridge.log("4参数拍照");
-                if (param.args[1] == null) {
-                    process_a_shot_jpeg(param, 3);
-                } else {
+                if (param.args[1] != null) {
                     process_a_shot_YUV(param);
+                }
+
+                if (param.args[3] != null) {
+                    process_a_shot_jpeg(param, 3);
                 }
             }
         });
@@ -236,7 +240,7 @@ public class HookMain implements IXposedHookLoadPackage {
             }
         });*/
 
-        XposedHelpers.findAndHookMethod("android.media.MediaRecorder", lpparam.classLoader, "setCamera", Camera.class, new XC_MethodHook() {
+        /*XposedHelpers.findAndHookMethod("android.media.MediaRecorder", lpparam.classLoader, "setCamera", Camera.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 super.beforeHookedMethod(param);
@@ -246,7 +250,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 }
                 param.args[0] = null;
             }
-        });
+        });*/
 
         XposedHelpers.findAndHookMethod("android.app.Instrumentation", lpparam.classLoader, "callApplicationOnCreate", Application.class, new XC_MethodHook() {
             @Override
@@ -261,6 +265,13 @@ public class HookMain implements IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "startPreview", new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                File file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
+                if (!file.exists()) {
+                    if (toast_content != null) {
+                        Toast.makeText(toast_content, "不存在替换视频", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                }
                 is_someone_playing = false;
                 XposedBridge.log("开始预览");
                 start_preview_camera = (Camera) param.thisObject;
@@ -349,6 +360,13 @@ public class HookMain implements IXposedHookLoadPackage {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 XposedBridge.log("添加Surfaceview预览");
+                File file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
+                if (!file.exists()) {
+                    if (toast_content != null) {
+                        Toast.makeText(toast_content, "不存在替换视频", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                }
                 mcamera1 = (Camera) param.thisObject;
                 ori_holder = (SurfaceHolder) param.args[0];
                 if (c1_fake_texture == null) {
@@ -763,7 +781,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     onemhight = loaclcam.getParameters().getPreviewSize().height;
                     XposedBridge.log("YUV拍照回调初始化：宽：" + onemwidth + "高：" + onemhight + "对应的类：" + loaclcam.toString());
                     if (toast_content != null) {
-                        Toast.makeText(toast_content, "发现拍照\n宽：" + onemwidth + "\n高：" + onemhight + "\n格式：YUV_420_888", Toast.LENGTH_LONG).show();
+                        Toast.makeText(toast_content, "发现拍照\n宽：" + onemwidth + "\n高：" + onemhight + "\n格式：YUV_420_888" , Toast.LENGTH_LONG).show();
                     }
                     input = getYUVByBitmap(getBMP(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/1000.bmp"));
                     paramd.args[0] = input;
@@ -792,7 +810,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     int frame_Rate = data_camera.getParameters().getPreviewFrameRate();
                     XposedBridge.log("帧预览回调初始化：宽：" + mwidth + " 高：" + mhight + " 帧率：" + frame_Rate);
                     if (toast_content != null) {
-                        Toast.makeText(toast_content, "宽：" + mwidth + "\n高：" + mhight + "\n" + "帧率：" + frame_Rate, Toast.LENGTH_LONG).show();
+                        Toast.makeText(toast_content, "发现预览\n宽：" + mwidth + "\n高：" + mhight + "\n" + "需要完全匹配分辨率", Toast.LENGTH_LONG).show();
                     }
                     File file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/virtual.mp4");
                     if (!file.exists()) {
