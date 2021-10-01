@@ -2,6 +2,7 @@
 xposed安卓虚拟摄像头  
 ## 感谢https://github.com/wangwei1237/CameraHook 提供的HOOK思路！！  
 ## 求有无极的大佬，希望帮忙测试一下此模块虚拟框架下是否可用，测试后希望在issue中反馈一下，谢谢！！！  
+### 注意：不是所有应用的拍照都调用`1000.bmp`，有很多app只是从`virtual.mp4`里截屏，只有在拍照时弹出“发现拍照”才是真正的调用`1000.bmp`!!
 
 ## 具体的使用方法(English version is below)：   
 1、安装xposed框架（传统xposed，edxp，lsposed等均可，不确定虚拟框架能否使用，已经确定VMOS可用，应用转生不可用）    
