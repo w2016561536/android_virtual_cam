@@ -1,46 +1,56 @@
 # android_virtual_cam
-xposed安卓虚拟摄像头  
-## 感谢https://github.com/wangwei1237/CameraHook 提供的HOOK思路！！  
-## 求有无极的大佬，希望帮忙测试一下此模块虚拟框架下是否可用，测试后希望在issue中反馈一下，谢谢！！！  
 
-## 具体的使用方法(English version is below)：   
-1、安装xposed框架（传统xposed，edxp，lsposed等均可，不确定虚拟框架能否使用，已经确定VMOS可用，应用转生不可用）    
-2、安装模块，启用模块，lsposed等包含定义域的框架需要选勾目标app，但无需选勾系统框架。  
-3、将需要替换的视频命名为`virtual.mp4`，放在`/sdcard/DCIM/Camera1/`目录下。（前置摄像头需要水平翻转后右旋90°保存，如果打开相机时看见“宽：...高：...”,则需要匹配分辨率）  
-4、若需要拦截拍照事件，请在`/sdcard/DCIM/Camera1/`目录下放置 `1000.bmp` 用于替换，（前置摄像头需要水平翻转后右旋90°保存，需要匹配分辨率）  
-> 注意：不是所有应用的拍照都调用`1000.bmp`，有很多app只是从`virtual.mp4`里截屏，只有在拍照时弹出“发现拍照”才是真正的调用`1000.bmp`
+[简体中文](./README.md) | [繁體中文](./README_tc.md) | [English](./README_en.md)
 
-5、**授予目标应用读取本地文件的权限，至少是允许读取媒体文件。**  
-6、强制结束目标应用/重启手机。  
+基于Xposed的虚拟摄像头
 
-## 如何获得分辨率？？(仅看见“宽：...高：...”需要)  
-在目标应用中打开摄像头，可在弹出的toast消息里看见。  
+# 请勿用于任何非法用途，所有后果自负。
 
-## Camera2接口有问题？？  
-是的，目前Camera2接口的HOOK不是所有应用程序都能生效，部分app报错打开相机失败，如果想停用Camera2接口的HOOK，可在`/sdcard/DCIM/Camera1/`下创建`disable.jpg`，以停用此项HOOK  
+## 支持平台：
 
-## 我不需要静音？？
-在`/sdcard/DCIM/Camera1/`下创建`no-silent.jpg`，就不会静音了。
+- 安卓5.0+
 
-## Detailed usage :
-1. Install this moudle. enable it in Xposed. Framework which has a scope list need to choose target app, but needn't to choose system framework.  
-2. Create `virtual.mp4` and put it under `/sdcard/DCIM/Camera1/` ,(if use front camera ,image should be Flip horizontal and right rotation 90 degrees, if you see "宽：...高：..." when opan camera, the resolution should be matched)   
-3. If you wants to hook image capture event, you should create `1000.bmp` under `/sdcard/DCIM/Camera1/` for replace. (if use front camera ,image should be Flip horizontal and right rotation 90 degrees, the resolution should be matched)    
-> ATTENTION: NOT all apps invoke `1000.bmp` when capture image, some apps directly capture a photo from `virtual.mp4`, when you see “发现拍照” when take photos, the app invoke `1000.bmp` .
-4. authorize the target app to access local storage in system.   
-5. Reboot your phone or shutdown target app.
+## 使用方法
 
-## bugs with camera2 api, need to disable it?
-create `disable.jpg` under `/sdcard/DCIM/Camera1/` to disable this method hook.  
-## how to get resolution ??(only needed if you see "宽：...高：...")?
-open camera in target app, and you can find resolution in toast message.  
-## Needn't mute?
-Create `no-silent.jpg` under `/sdcard/DCIM/Camera1/`, and it will play sounds.  
+1. 安装此模块，并在Xposed中启用此模块，Lsposed等包含作用域的框架需要选择目标app，无需选择系统框架。
+   
+2. 在系统设置中，授予目标应用读取本地存储的权限，并强制结束目标应用程序。若应用程序未申请此权限，请见步骤3。
+   
+3. 打开目标应用，若应用未能获得读取存储的权限，则会以气泡消息提示，`Camera1`目录被重定向至应用程序私有目录`/[内部存储]/Android/data/[应用包名]/files/Camera1/`。若未提示，则默认`Camera1`目录为`/[内部存储]/DCIM/Camera1/`。若目录不存在，请手动创建。
 
-## release无法下载/gitee下载(gitee与github作者同id，同仓库名)？？  
-在/app/release/app-release.apk，下载前请注意分支。  
-GitHub： https://github.com/w2016561536/android_virtual_cam/blob/master/app/release/app-release.apk  
-gitee（中国大陆建议此点）： https://gitee.com/w2016561536/android_virtual_cam/blob/master/app/release/app-release.apk  
+> 注意：私有目录下的`Camera1`仅对该应用单独生效。
 
-# 请勿用于非法用途，所有后果自负。  
-# DO NOT USE FOR ANY ILLEAGLE INTENTION!!YOU NEED TO TAKE ALL RESPONSIBILITY AND CONSEQUENCE!!"
+4. 在目标应用中打开相机预览，会以气泡消息提示“宽：……高：……”，需要根据此分辨率数据制作替换视频，放置于`Camera1`目录下，并命名为`virtual.mp4`，若打开相机并无提示消息，则无需调整视频分辨率。
+   
+5. 若在目标应用中拍照却显示真实图片，且出现气泡消息`发现拍照`和分辨率，则需根据此分辨率数据准备一张照片，命名为`1000.bmp`，放入`Camera1`目录下（支持其它格式改后缀为bmp）。如果拍照时无气泡消息提示，则`1000.bmp`无效。
+   
+6. 如果需要播放视频的声音，需在`Camera1`目录下创建`no-silent.jpg`文件。
+   
+7. 如果需要临时停用视频替换，需在`Camera1`目录下创建`disable.jpg`。
+
+
+## 常见问题
+
+A1. 前置摄像头方向问题？  
+Q1. 大多数情况下,替换前置摄像头的视频需要水平翻转并右旋90度，并且视频***处理后***的分辨率应与气泡消息内分辨率相同。但有时这并不需要，具体请根据实际情况判断。
+
+
+Q2. 画面黑屏，相机启动失败？  
+A2. 目前有些应用并不能成功替换（特别是系统相机），但剩下的大多是由于视频**编码格式**不正确（并非封装格式），目前仅支持`H.264`编码格式。或者时因为视频路径不对。
+
+
+Q3. 画面花屏？  
+A3. 视频分辨率不对。
+
+## 反馈问题
+
+请直接在issues中反馈，如果为BUG反馈，请附带日志信息。
+
+
+## 致谢:
+
+提供HOOK思路: https://github.com/wangwei1237/CameraHook  
+
+H264硬解码： https://github.com/zhantong/Android-VideoToImages  
+
+JPEG转YUV： https://blog.csdn.net/jacke121/article/details/73888732  

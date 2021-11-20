@@ -1,20 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">VCAM</string>
-    <string name="_1_xposed_xposed_edxp_lsp_vmos_2_lsp_app_3_virtual_mp4_sdcard_dcim_camera_4_premiere_bmp_premiere_1000_1_bmp_sdcard_dcim_camera_bmp_5">"
-##Detailed usage :
-1. Install this moudle. enable it in Xposed. Framework which has a scope list need to choose target app, but needn't to choose system framework.\n
-2. Create virtual.mp4 and put it under /sdcard/DCIM/Camera1/ ,(if use front camera ,image should be Flip horizontal and right rotation 90 degrees, if you want to hook onPreviewFrame ,the resolution should be matched)\n
-3. If you wants to hook image capture event, you should create 1000.bmp under /sdcard/DCIM/Camera1/ for replace. (if use front camera ,image should be Flip horizontal and right rotation 90 degrees, the resolution should be matched)\n
-4. authorize the target app to access local storage in system.\n
-5. Reboot your phone or shutdown target app.\n
-##bugs with camera2 api, need to disable it?
-create disable.jpg under /sdcard/DCIM/Camera1/ to disable this method hook.\n
-##how to get resolution ??(only hook onPreviewFrame and image capture need it)?
-open camera in target app, and you can find resolution in toast message.\n
-##Needn't mute?
-Create no-silent.jpg under /sdcard/DCIM/Camera1/, and it will play sounds.\n
-open source repo link : https://github.com/w2016561536/android_virtual_cam \n
-DO NOT USE FOR ANY ILLEAGLE INTENTION!!YOU NEED TO TAKE ALL RESPONSIBILITY AND CONSEQUENCE!!"
-    </string>
+    <string name="click_to_go_to_repo">click to go to repository</string>
+    <string name="description">Please go to online repository to check for latest update, latest usgae and report bugs</string>
+    <string name="Warning">DO NOT USE FOR ANY ILLEGAL PURPOSE !!YOU NEED TO TAKE ALL RESPONSIBILITY AND CONSEQUENCE!!</string>
 </resources>

@@ -1,21 +1,6 @@
 <resources>
     <string name="app_name">VCAM</string>
-    <string name="_1_xposed_xposed_edxp_lsp_vmos_2_lsp_app_3_virtual_mp4_sdcard_dcim_camera_4_premiere_bmp_premiere_1000_1_bmp_sdcard_dcim_camera_bmp_5">
-## 具體的使用方法：  \n\n
-1、安裝xposed框架（xposed，edxposed，lsposed等均可，不確定虛擬框架能否使用，已經確定VMOS可用，應用轉生不可用）  \n\n
-2、安裝模組，啟用模組，lsposed等包含作用域的框架需要選勾目標app，但無需選勾系統框架。  \n\n
-3、將需要取代的影片命名為virtual.mp4，放在/sdcard/DCIM/Camera1/目錄下。（前置攝影機需要水平翻轉後右旋90°儲存，攔截onPreviewFrame需要匹配解析度）  \n\n
-4、若需要攔截拍照事件，請在/sdcard/DCIM/Camera1/目錄下放置 1000.bmp 用於取代，（前置攝影機需要水平翻轉後右旋90°儲存，需要匹配解析度）  \n\n
-5、在系統設定中授予目標應用訪問儲存的權限。\n\n
-6、強制結束目標應用/重啟手機。
-\n\n
-## 如何獲得解析度？？(僅攔截onPreviewFrame和拍照需要，其它系統自動處理)  \n
-在目標應用中打開攝影機，可在彈出的toast消息裡看見。  \n\n
-## Camera2介面有問題？？  \n
-是的，目前Camera2介面的HOOK不是所有應用程式都能生效，部分app報錯打開相機失敗，如果想停用Camera2介面的HOOK，可在/sdcard/DCIM/Camera1/下建立disable.jpg，以停用此項HOOK \n\n
-## 我不需要靜音？？\n
-在/sdcard/DCIM/Camera1/下建立no-silent.jpg，就不會靜音了。\n\n
-開源地址：https://github.com/w2016561536/android_virtual_cam \n\n
-請勿用於任何違法用途，所有後果自負！！！
-    </string>
+    <string name="click_to_go_to_repo">前往倉庫</string>
+    <string name="description">請前往線上倉庫來查看使用方法，應用更新和迴響缺陷</string>
+    <string name="Warning">請勿用於非法用途，所有後果自負！</string>
 </resources>
