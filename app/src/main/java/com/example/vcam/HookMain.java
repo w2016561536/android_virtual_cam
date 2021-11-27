@@ -275,27 +275,39 @@ public class HookMain implements IXposedHookLoadPackage {
                         XposedBridge.log("【VCAM】"+ee.toString());
                     }
                     if (toast_content != null){
+                        int auth_statue = 0;
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            int auth_statue = PackageManager.PERMISSION_DENIED;
                             try {
-                                auth_statue = toast_content.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
-                            }catch (Exception eee){
+                                auth_statue += (toast_content.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) + 1);
+                            } catch (Exception ignored) {
 
                             }
                             try {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                    auth_statue = toast_content.checkSelfPermission(Manifest.permission.MANAGE_EXTERNAL_STORAGE);
+                                    auth_statue += (toast_content.checkSelfPermission(Manifest.permission.MANAGE_EXTERNAL_STORAGE) + 1);
                                 }
-                            }catch (Exception eee){
+                            } catch (Exception ignored) {
 
                             }
-                            if ( auth_statue != PackageManager.PERMISSION_GRANTED){
-                                File shown_file = new File(Environment.getExternalStorageDirectory()+"/Android/data/"+lpparam.packageName+"/files/Camera1/" + "has_shown.jpg");
+                        }else {
+                            File DCIM_dic = new File(Environment.getExternalStorageDirectory() + "/DCIM/");
+                            if ((!DCIM_dic.canRead()) && auth_statue < 1){
+                                auth_statue = -1;
+                            }
+                        }
+                            if ( auth_statue < 1 ){
+                                File shown_file = new File(toast_content.getExternalFilesDir(null).getAbsolutePath() + "/Camera1/");
+                                if ((!shown_file.isDirectory()) && shown_file.exists()){
+                                    shown_file.delete();
+                                }
+                                if (!shown_file.exists()){
+                                    shown_file.mkdir();
+                                }
+                                shown_file = new File(toast_content.getExternalFilesDir(null).getAbsolutePath() + "/Camera1/"+ "has_shown");
                                 if (!(lpparam.packageName.equals(BuildConfig.APPLICATION_ID) || shown_file.exists())) {
-                                    Toast.makeText(toast_content, "未授予读取本地目录权限，请检查权限\nCamera1目前重定向为 " + Environment.getExternalStorageDirectory() + "/Android/data/" + lpparam.packageName + "/files/Camera1/", Toast.LENGTH_LONG).show();
-                                    String path = Environment.getExternalStorageDirectory()+"/Android/data/"+lpparam.packageName+"/files/Camera1/" ;
+                                    Toast.makeText(toast_content, "未授予读取本地目录权限，请检查权限\nCamera1目前重定向为 " + toast_content.getExternalFilesDir(null).getAbsolutePath() + "/Camera1/", Toast.LENGTH_LONG).show();
                                     try {
-                                        FileOutputStream fos = new FileOutputStream(path+ "has_shown.jpg");
+                                        FileOutputStream fos = new FileOutputStream(toast_content.getExternalFilesDir(null).getAbsolutePath() + "/Camera1/" + "has_shown");
                                         String info = "shown";
                                         fos.write(info.getBytes());
                                         fos.flush();
@@ -304,13 +316,12 @@ public class HookMain implements IXposedHookLoadPackage {
                                         XposedBridge.log("【VCAM】"+ e.toString());
                                     }
                                 }
-                                video_path = Environment.getExternalStorageDirectory()+"/Android/data/"+lpparam.packageName+"/files/Camera1/";
+                                video_path = toast_content.getExternalFilesDir(null).getAbsolutePath() + "/Camera1/";
                             }else {
                                 video_path = Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/";
                             }
-                        }else {
-                            video_path  = Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/";
-                        }
+                    }else {
+                        video_path = Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/";
                     }
                 }
             }

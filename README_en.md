@@ -34,7 +34,7 @@ Q1. The problems of front camera?
 A1. In most cases , the video for replacing front camera need to be flipped horizontally and rotated right 90 degrees. The video's resolution **after being processed** need to same with that in toast message.  But in some came, it doesn't need to make adjustment, so you need to judge it according to situation.
 
 Q2. Black screen ? Open camera fail ?  
-A2. Till now ,there are a few apps that can't be hooked, especially the system camera. Or it caused by wrong `Camera1` directory.
+A2. Till now ,there are a few apps that can't be hooked, especially the system camera. Or it caused by wrong `Camera1` directory（Whether two levels of Camera1 directory were created, like `./DCIM/Camera1/Camera1/virtual.mp4`, only one level is needed）.
 
 Q3. Blurred screen?  
 A3. The resolution of video is wrong.
