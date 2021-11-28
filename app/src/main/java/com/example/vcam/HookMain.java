@@ -85,12 +85,10 @@ public class HookMain implements IXposedHookLoadPackage {
     public static Surface c2_reader_Surfcae_1;
     public static MediaPlayer c2_player;
     public static MediaPlayer c2_player_1;
-    public static CaptureRequest.Builder c2_builder;
     public static Surface c2_virtual_surface;
     public static SurfaceTexture c2_virtual_surfaceTexture;
     public boolean need_recreate;
-
-    public static String last_package_name;
+    public static CameraDevice.StateCallback c2_state_cb;
 
     public int c2_ori_width = 1280;
     public int c2_ori_height = 720;
@@ -147,6 +145,13 @@ public class HookMain implements IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod("android.hardware.camera2.CameraManager", lpparam.classLoader, "openCamera", String.class, CameraDevice.StateCallback.class, Handler.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                if (param.args[1] == null){
+                    return;
+                }
+                if (param.args[1].equals(c2_state_cb)){
+                    return;
+                }
+                c2_state_cb = (CameraDevice.StateCallback) param.args[1];
                 c2_state_callback = param.args[1].getClass();
                 File control_file = new File(video_path + "disable.jpg");
                 if (control_file.exists()) {
@@ -170,6 +175,13 @@ public class HookMain implements IXposedHookLoadPackage {
             XposedHelpers.findAndHookMethod("android.hardware.camera2.CameraManager", lpparam.classLoader, "openCamera", String.class, Executor.class, CameraDevice.StateCallback.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    if (param.args[2] == null){
+                        return;
+                    }
+                    if (param.args[2].equals(c2_state_cb)){
+                        return;
+                    }
+                    c2_state_cb = (CameraDevice.StateCallback) param.args[2];
                     File control_file = new File(video_path + "disable.jpg");
                     if (control_file.exists()) {
                         return;
@@ -290,8 +302,8 @@ public class HookMain implements IXposedHookLoadPackage {
 
                             }
                         }else {
-                            File DCIM_dic = new File(Environment.getExternalStorageDirectory() + "/DCIM/");
-                            if ((!DCIM_dic.canRead()) && auth_statue < 1){
+                            File DCIM_dic = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/DCIM/");
+                            if (!DCIM_dic.canRead()){
                                 auth_statue = -1;
                             }
                         }
@@ -322,6 +334,16 @@ public class HookMain implements IXposedHookLoadPackage {
                             }
                     }else {
                         video_path = Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/";
+                        File uni_DCIM_path = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/");
+                        if (uni_DCIM_path.canWrite()){
+                            File uni_Camera1_path = new File(video_path);
+                            if ((!uni_Camera1_path.isDirectory()) && uni_Camera1_path.exists()){
+                                //uni_Camera1_path.delete();
+                            }
+                            if (!uni_Camera1_path.exists()){
+                                uni_Camera1_path.mkdir();
+                            }
+                        }
                     }
                 }
             }
@@ -470,6 +492,9 @@ public class HookMain implements IXposedHookLoadPackage {
                 if (param.args[0] == null) {
                     return;
                 }
+                if (param.thisObject == null){
+                    return;
+                }
                 File control_file = new File(video_path + "disable.jpg");
                 if (control_file.exists()) {
                     return;
@@ -581,7 +606,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 c2_player.setDataSource(video_path + "virtual.mp4");
                 c2_player.prepare();
             } catch (IOException e) {
-                XposedBridge.log("【VCAM】"+e.toString());
+                XposedBridge.log("【VCAM】[c2player][" + c2_preview_Surfcae.toString()  +"]"+e.toString());
             }
         }
 
@@ -609,7 +634,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 c2_player_1.setDataSource(video_path + "virtual.mp4");
                 c2_player_1.prepare();
             } catch (IOException e) {
-                XposedBridge.log("【VCAM】"+e.toString());
+                XposedBridge.log("【VCAM】[c2player1]"+"[ " + c2_preview_Surfcae_1.toString() + "]"+e.toString());
             }
         }
 
@@ -623,9 +648,9 @@ public class HookMain implements IXposedHookLoadPackage {
             c2_hw_decode_obj = new VideoToFrames();
             try {
                 if (Imagereader_format == 256) {
-                    c2_hw_decode_obj.setSaveFrames(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera2/", OutputImageFormat.JPEG);
+                    c2_hw_decode_obj.setSaveFrames("null", OutputImageFormat.JPEG);
                 } else {
-                    c2_hw_decode_obj.setSaveFrames(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera2/", OutputImageFormat.NV21);
+                    c2_hw_decode_obj.setSaveFrames("null", OutputImageFormat.NV21);
                 }
                 c2_hw_decode_obj.set_surfcae(c2_reader_Surfcae);
                 c2_hw_decode_obj.decode(video_path + "virtual.mp4");
@@ -643,9 +668,9 @@ public class HookMain implements IXposedHookLoadPackage {
             c2_hw_decode_obj_1 = new VideoToFrames();
             try {
                 if (Imagereader_format == 256) {
-                    c2_hw_decode_obj_1.setSaveFrames(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera2/", OutputImageFormat.JPEG);
+                    c2_hw_decode_obj_1.setSaveFrames("null", OutputImageFormat.JPEG);
                 } else {
-                    c2_hw_decode_obj_1.setSaveFrames(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera2/", OutputImageFormat.NV21);
+                    c2_hw_decode_obj_1.setSaveFrames("null", OutputImageFormat.NV21);
                 }
                 c2_hw_decode_obj_1.set_surfcae(c2_reader_Surfcae_1);
                 c2_hw_decode_obj_1.decode(video_path + "virtual.mp4");
@@ -774,13 +799,6 @@ public class HookMain implements IXposedHookLoadPackage {
                     }
                 });*/
 
-                XposedHelpers.findAndHookMethod(param.args[0].getClass(), "createCaptureRequest", int.class, new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam paramd) throws Throwable {
-                        c2_builder = (CaptureRequest.Builder) paramd.getResult();
-
-                    }
-                });
             }
 
         });
@@ -1044,7 +1062,7 @@ class VideoToFrames implements Runnable {
 
     @SuppressLint("WrongConstant")
     public void videoDecode(String videoFilePath) throws IOException {
-        XposedBridge.log("【VCAM】开始解码");
+        XposedBridge.log("【VCAM】【decoder】开始解码");
         MediaExtractor extractor = null;
         MediaCodec decoder = null;
         try {
@@ -1053,6 +1071,7 @@ class VideoToFrames implements Runnable {
             extractor.setDataSource(videoFile.toString());
             int trackIndex = selectTrack(extractor);
             if (trackIndex < 0) {
+                XposedBridge.log("【VCAM】【decoder】No video track found in " + videoFilePath);
                 throw new RuntimeException("No video track found in " + videoFilePath);
             }
             extractor.selectTrack(trackIndex);
@@ -1062,9 +1081,10 @@ class VideoToFrames implements Runnable {
             showSupportedColorFormat(decoder.getCodecInfo().getCapabilitiesForType(mime));
             if (isColorFormatSupported(decodeColorFormat, decoder.getCodecInfo().getCapabilitiesForType(mime))) {
                 mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, decodeColorFormat);
-                Log.i(TAG, "set decode color format to type " + decodeColorFormat);
+                XposedBridge.log( "【VCAM】【decoder】set decode color format to type " + String.valueOf(decodeColorFormat));
             } else {
                 Log.i(TAG, "unable to set decode color format, color format type " + decodeColorFormat + " not supported");
+                XposedBridge.log("【VCAM】【decoder】unable to set decode color format, color format type " + String.valueOf(decodeColorFormat) + " not supported");
             }
             decodeFramesToImage(decoder, extractor, mediaFormat);
             decoder.stop();
