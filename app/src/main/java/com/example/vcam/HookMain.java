@@ -22,6 +22,7 @@ import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaPlayer;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
@@ -89,6 +90,7 @@ public class HookMain implements IXposedHookLoadPackage {
     public static SurfaceTexture c2_virtual_surfaceTexture;
     public boolean need_recreate;
     public static CameraDevice.StateCallback c2_state_cb;
+    public static CaptureRequest.Builder c2_builder;
 
     public int c2_ori_width = 1280;
     public int c2_ori_height = 720;
@@ -523,9 +525,49 @@ public class HookMain implements IXposedHookLoadPackage {
             }
         });
 
+        XposedHelpers.findAndHookMethod("android.hardware.camera2.CaptureRequest.Builder", lpparam.classLoader, "removeTarget", Surface.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) {
+
+                if (param.args[0] == null) {
+                    return;
+                }
+                if (param.thisObject == null){
+                    return;
+                }
+                File control_file = new File(video_path + "disable.jpg");
+                if (control_file.exists()) {
+                    return;
+                }
+                Surface rm_surf = (Surface) param.args[0];
+                if (rm_surf.equals(c2_preview_Surfcae)){
+                    c2_preview_Surfcae= null;
+                }
+                if (rm_surf.equals(c2_preview_Surfcae_1)){
+                    c2_preview_Surfcae_1 = null;
+                }
+                if (rm_surf.equals(c2_reader_Surfcae_1)){
+                    c2_reader_Surfcae_1 = null;
+                }
+                if (rm_surf.equals(c2_reader_Surfcae)){
+                    c2_reader_Surfcae = null;
+                }
+
+                XposedBridge.log("【VCAM】移除目标：" + param.args[0].toString());
+            }
+        });
+
         XposedHelpers.findAndHookMethod("android.hardware.camera2.CaptureRequest.Builder", lpparam.classLoader, "build", new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                if (param.thisObject == null){
+                    return;
+                }
+                if (param.thisObject.equals(c2_builder)){
+                    return;
+                }
+                c2_builder = (CaptureRequest.Builder) param.thisObject;
+
                 File control_file = new File(video_path + "disable.jpg");
                 if (control_file.exists()) {
                     return;
@@ -582,62 +624,6 @@ public class HookMain implements IXposedHookLoadPackage {
     }
 
     public void process_camera2_play() {
-        if (c2_preview_Surfcae != null) {
-            if (c2_player == null) {
-                c2_player = new MediaPlayer();
-            } else {
-                c2_player.release();
-                c2_player = new MediaPlayer();
-            }
-            c2_player.setSurface(c2_preview_Surfcae);
-            File sfile = new File(video_path + "no-silent.jpg");
-            if (!sfile.exists()) {
-                c2_player.setVolume(0, 0);
-            }
-            c2_player.setLooping(true);
-
-
-            c2_player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                public void onPrepared(MediaPlayer mp) {
-                    c2_player.start();
-                }
-            });
-            try {
-                c2_player.setDataSource(video_path + "virtual.mp4");
-                c2_player.prepare();
-            } catch (IOException e) {
-                XposedBridge.log("【VCAM】[c2player][" + c2_preview_Surfcae.toString()  +"]"+e.toString());
-            }
-        }
-
-        if (c2_preview_Surfcae_1 != null) {
-            if (c2_player_1 == null) {
-                c2_player_1 = new MediaPlayer();
-            } else {
-                c2_player_1.release();
-                c2_player_1 = new MediaPlayer();
-            }
-            c2_player_1.setSurface(c2_preview_Surfcae_1);
-            File sfile = new File(video_path + "no-silent.jpg");
-            if (!sfile.exists()) {
-                c2_player_1.setVolume(0, 0);
-            }
-            c2_player_1.setLooping(true);
-
-
-            c2_player_1.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                public void onPrepared(MediaPlayer mp) {
-                    c2_player_1.start();
-                }
-            });
-            try {
-                c2_player_1.setDataSource(video_path + "virtual.mp4");
-                c2_player_1.prepare();
-            } catch (IOException e) {
-                XposedBridge.log("【VCAM】[c2player1]"+"[ " + c2_preview_Surfcae_1.toString() + "]"+e.toString());
-            }
-        }
-
 
         if (c2_reader_Surfcae != null) {
             if (c2_hw_decode_obj != null) {
@@ -675,9 +661,65 @@ public class HookMain implements IXposedHookLoadPackage {
                 c2_hw_decode_obj_1.set_surfcae(c2_reader_Surfcae_1);
                 c2_hw_decode_obj_1.decode(video_path + "virtual.mp4");
             } catch (Throwable throwable) {
-                XposedBridge.log("【VCAM】"+throwable.toString());
+                XposedBridge.log("【VCAM】" + throwable.toString());
             }
         }
+
+
+        if (c2_preview_Surfcae != null) {
+            if (c2_player == null) {
+                c2_player = new MediaPlayer();
+            } else {
+                c2_player.release();
+                c2_player = new MediaPlayer();
+            }
+            c2_player.setSurface(c2_preview_Surfcae);
+            File sfile = new File(video_path + "no-silent.jpg");
+            if (!sfile.exists()) {
+                c2_player.setVolume(0, 0);
+            }
+            c2_player.setLooping(true);
+
+            try {
+                c2_player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                    public void onPrepared(MediaPlayer mp) {
+                        c2_player.start();
+                    }
+                });
+                c2_player.setDataSource(video_path + "virtual.mp4");
+                c2_player.prepare();
+            } catch (Exception e) {
+                XposedBridge.log("【VCAM】[c2player][" + c2_preview_Surfcae.toString()  +"]"+e.toString());
+            }
+        }
+
+        if (c2_preview_Surfcae_1 != null) {
+            if (c2_player_1 == null) {
+                c2_player_1 = new MediaPlayer();
+            } else {
+                c2_player_1.release();
+                c2_player_1 = new MediaPlayer();
+            }
+            c2_player_1.setSurface(c2_preview_Surfcae_1);
+            File sfile = new File(video_path + "no-silent.jpg");
+            if (!sfile.exists()) {
+                c2_player_1.setVolume(0, 0);
+            }
+            c2_player_1.setLooping(true);
+
+            try {
+                c2_player_1.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                    public void onPrepared(MediaPlayer mp) {
+                        c2_player_1.start();
+                    }
+                });
+                c2_player_1.setDataSource(video_path + "virtual.mp4");
+                c2_player_1.prepare();
+            } catch (Exception e) {
+                XposedBridge.log("【VCAM】[c2player1]"+"[ " + c2_preview_Surfcae_1.toString() + "]"+e.toString());
+            }
+        }
+        XposedBridge.log("【VCAM】处理过程完全执行");
     }
 
     public Surface create_virtual_surface() {
