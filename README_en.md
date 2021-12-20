@@ -41,7 +41,7 @@ A3. The resolution of video is wrong.
 
 ## Question report:
 
-raise it in issues directly. If it is a bug, please attach with Xposed log.
+raise it in issues directly. If it is a bug, please attach with Xposed **modules** log.
 
 ## Credit
 
