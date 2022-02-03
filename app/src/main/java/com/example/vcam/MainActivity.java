@@ -22,7 +22,6 @@ public class MainActivity extends Activity {
         repo_button.setOnClickListener(new View.OnClickListener() {
 
             @Override
-
             public void onClick(View v) {
 
                 Uri uri = Uri.parse("https://github.com/w2016561536/android_virtual_cam");
@@ -30,6 +29,8 @@ public class MainActivity extends Activity {
                 startActivity(intent);
             }
         });
+
+
     }
 }
 
