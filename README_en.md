@@ -39,6 +39,9 @@ A2. Till now ,there are a few apps that can't be hooked, especially the system c
 Q3. Blurred screen?  
 A3. The resolution of video is wrong.
 
+Q4. Distorted picture?
+A4. Please use the video editing software to modify the original video to match the screen.
+
 ## Question report:
 
 raise it in issues directly. If it is a bug, please attach with Xposed **modules** log.

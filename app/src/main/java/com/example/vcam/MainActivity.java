@@ -30,7 +30,15 @@ public class MainActivity extends Activity {
             }
         });
 
-
+        Button repo_button_chinamainland = findViewById(R.id.button2);
+        repo_button_chinamainland.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Uri uri = Uri.parse("https://gitee.com/w2016561536/android_virtual_cam");
+                Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                startActivity(intent);
+            }
+        });
     }
 }
 
