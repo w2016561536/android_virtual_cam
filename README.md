@@ -6,6 +6,8 @@
 
 # 请勿用于任何非法用途，所有后果自负。
 
+### 中国大陆加速地址（Gitee平台）： https://gitee.com/w2016561536/android_virtual_cam
+
 ## 支持平台：
 
 - 安卓5.0+
