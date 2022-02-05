@@ -24,9 +24,14 @@ A virtual camera based on Xposed
 
 5. If there is a toast message when you take photos in app ("发现拍照")，it shows the photo's resolution. You need to prepare a photo which has the same resolution. Name it as `1000.bmp` . Put it under `Camera1` directory. (it support other image format renamed to bmp ). If there isn't a toast message , `1000.bmp` will have nothing to do with replacing capture.
 
-6. If you need to play video's sound, create `no-silent.jpg` under `Camera1` directory.
+6. If you need to play video's sound, create `./DCIM/Camera1/Camera1/virtual.mp4` under `Camera1` directory. (Global real-time effective)
 
-7. If you need to turn off the module temporarily, create `disable.jpg` under `Camera1` directory.
+7. If you need to turn off the module temporarily, create `./DCIM/Camera1/Camera1/virtual.mp4` under `Camera1` directory. (Global real-time effective)
+
+8. If you find toast messages annoying, you can create a `no_toast.jpg` file in the `/[INTERNEL_STORAGE]/DCIM/Camera1/` directory. (Global real-time effective)
+
+9. The directory redirection message is displayed only once by default. If you miss the toast message of directory redirection, you can create a `force_show.jpg` file in the `/[INTERNEL_STORAGE]/DCIM/Camera1/` directory to override the default setting. (Global real-time effective)
+
 
 ## FAQ
 
@@ -39,8 +44,12 @@ A2. Till now ,there are a few apps that can't be hooked, especially the system c
 Q3. Blurred screen?  
 A3. The resolution of video is wrong.
 
-Q4. Distorted picture?
+Q4. Distorted picture?  
 A4. Please use the video editing software to modify the original video to match the screen.
+
+Q5. `disable.jpg` invalid?  
+A5. If the application version `<=4.0`, then the control files in the `[INTERNEL_STORAGE]/DCIM/Camera1` directory will take effect for the applications that **have access to storage permissions**, and for the rest of the applications without permission, control files should be created in the **private directory**  
+If the app version `>=4.1`, it should be created in `[INTERNEL_STORAGE]/DCIM/Camera1` regardless of whether the target app has permissions.
 
 ## Question report:
 

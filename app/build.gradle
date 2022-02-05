@@ -9,8 +9,8 @@ android {
         applicationId "com.example.vcam"
         minSdk 21
         targetSdk 27
-        versionCode 23
-        versionName "4.0"
+        versionCode 24
+        versionName "4.1"
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }

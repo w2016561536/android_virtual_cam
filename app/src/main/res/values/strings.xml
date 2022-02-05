@@ -4,4 +4,6 @@
     <string name="click_to_go_to_repo">click to go to repository</string>
     <string name="description">Please go to online repository to check for latest update, latest usgae and report bugs</string>
     <string name="Warning">DO NOT USE FOR ANY ILLEGAL PURPOSE !!YOU NEED TO TAKE ALL RESPONSIBILITY AND CONSEQUENCE!!</string>
+    <string name="switch1">Force to show permission lack warning</string>
+    <string name="switch2">Disable the module temporarily (On is disable)</string>
 </resources>

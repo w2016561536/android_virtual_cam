@@ -33,7 +33,40 @@
             android:id="@+id/button2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20px"
+            android:layout_marginTop="5dp"
+            android:layout_marginBottom="10dp"
             android:text="Gitee平台（中国大陆更快）" />
+
+        <TableLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:minHeight="48dp">
+
+                <Switch
+                    android:id="@+id/switch1"
+                    android:layout_width="378dp"
+                    android:layout_height="match_parent"
+                    android:text="@string/switch1" />
+            </TableRow>
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:minHeight="48dp">
+
+                <Switch
+                    android:id="@+id/switch2"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="48dp"
+                    android:text="@string/switch2" />
+            </TableRow>
+
+        </TableLayout>
     </LinearLayout>
 </ScrollView>

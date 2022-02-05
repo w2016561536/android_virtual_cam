@@ -3,4 +3,6 @@
     <string name="click_to_go_to_repo">前往倉庫</string>
     <string name="description">請前往線上倉庫來查看使用方法，應用更新和迴響缺陷</string>
     <string name="Warning">請勿用於非法用途，所有後果自負！</string>
+    <string name="switch2">臨時關閉模組</string>
+    <string name="switch1">強制顯示許可權缺失提示</string>
 </resources>
