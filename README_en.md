@@ -34,7 +34,7 @@ A virtual camera based on Xposed
 
 10. If you need to allocate videos for each application, you can create `private_dir.jpg` in the `/[INTERNEL_STORAGE]/DCIM/Camera1/` directory to enforce apps use private directory. (Global real-time effective)
 
-> Note: the configuration switches of 6 ~ 10 are in the application. You can quickly configure them in the application or create files manually.
+> Note: the configuration of 6 ~ 10 are in the application. You can quickly configure them in the application or create files manually.
 
 ## FAQ
 
