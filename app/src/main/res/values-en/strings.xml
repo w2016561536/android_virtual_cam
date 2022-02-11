@@ -6,4 +6,11 @@
     <string name="Warning">DO NOT USE FOR ANY ILLEGAL PURPOSE !!YOU NEED TO TAKE ALL RESPONSIBILITY AND CONSEQUENCE!!</string>
     <string name="switch1">Force to show permission lack warning</string>
     <string name="switch2">Disable the module temporarily (On is disable)</string>
+    <string name="switch3">Play sounds of videos</string>
+    <string name="switch4">Force every app use private Force every app use private directory (No matter the permission)</string>
+    <string name="switch5">Disable toast message</string>
+    <string name="permission_lack_warn">Missing permissions</string>
+    <string name="permission_description">The permission to access local storage is used to set up configuration files. If refused you need to set up file manually.</string>
+    <string name="positive">Sure</string>
+    <string name="negative">Refuse</string>
 </resources>

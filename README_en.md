@@ -32,6 +32,9 @@ A virtual camera based on Xposed
 
 9. The directory redirection message is displayed only once by default. If you miss the toast message of directory redirection, you can create a `force_show.jpg` file in the `/[INTERNEL_STORAGE]/DCIM/Camera1/` directory to override the default setting. (Global real-time effective)
 
+10. If you need to allocate videos for each application, you can create `private_dir.jpg` in the `/[INTERNEL_STORAGE]/DCIM/Camera1/` directory to enforce apps use private directory. (Global real-time effective)
+
+> Note: the configuration switches of 6 ~ 10 are in the application. You can quickly configure them in the application or create files manually.
 
 ## FAQ
 

@@ -5,4 +5,11 @@
     <string name="Warning">请勿用于非法用途，所有后果自负!</string>
     <string name="switch1">强制显示权限缺失提示</string>
     <string name="switch2">临时关闭模块</string>
+    <string name="switch3">播放视频声音</string>
+    <string name="switch4">强制每个应用程序使用私有目录（无论权限）</string>
+    <string name="switch5">关闭提示消息</string>
+    <string name="permission_lack_warn">无权限</string>
+    <string name="permission_description">访问本地目录的权限用于设定配置文件，如果拒绝，您需要手动设定配置文件。</string>
+    <string name="positive">确定</string>
+    <string name="negative">拒绝</string>
 </resources>

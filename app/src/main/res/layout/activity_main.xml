@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<ScrollView android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    xmlns:android="http://schemas.android.com/apk/res/android">
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -35,12 +35,12 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
             android:layout_marginBottom="10dp"
-            android:text="Gitee平台（中国大陆更快）" />
+            android:text="@string/gitee" />
 
         <TableLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:visibility="gone">
+            android:visibility="visible">
 
             <TableRow
                 android:layout_width="match_parent"
@@ -49,7 +49,7 @@
 
                 <Switch
                     android:id="@+id/switch1"
-                    android:layout_width="378dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:text="@string/switch1" />
             </TableRow>
@@ -61,10 +61,50 @@
 
                 <Switch
                     android:id="@+id/switch2"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="match_parent"
-                    android:maxHeight="48dp"
+                    android:minHeight="48dp"
                     android:text="@string/switch2" />
+
+            </TableRow>
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:minHeight="48dp">
+
+                <Switch
+                    android:id="@+id/switch3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:minHeight="48dp"
+                    android:text="@string/switch3" />
+            </TableRow>
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:minHeight="48dp">
+
+                <Switch
+                    android:id="@+id/switch4"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:minHeight="48dp"
+                    android:text="@string/switch4" />
+            </TableRow>
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:minHeight="48dp">
+
+                <Switch
+                    android:id="@+id/switch5"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:minHeight="48dp"
+                    android:text="@string/switch5" />
             </TableRow>
 
         </TableLayout>

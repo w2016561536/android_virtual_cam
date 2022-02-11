@@ -125,7 +125,7 @@ public class VideoToFrames implements Runnable {
                 decoder.stop();
             }
         }catch (Exception e){
-            XposedBridge.log("【VCAM】[videofile]"+ e.getMessage());
+            XposedBridge.log("【VCAM】[videofile]"+ e.toString());
         } finally {
             if (decoder != null) {
                 decoder.stop();

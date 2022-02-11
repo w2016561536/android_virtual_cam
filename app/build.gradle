@@ -8,9 +8,9 @@ android {
     defaultConfig {
         applicationId "com.example.vcam"
         minSdk 21
-        targetSdk 27
-        versionCode 26
-        versionName "4.2"
+        targetSdk 26
+        versionCode 27
+        versionName "4.3"
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
