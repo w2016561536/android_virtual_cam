@@ -1,15 +1,15 @@
 <resources>
     <string name="app_name">VCAM</string>
     <string name="click_to_go_to_repo">前往倉庫</string>
-    <string name="description">請前往線上倉庫來查看使用方法，應用更新和迴響缺陷</string>
+    <string name="description">請前往線上倉庫來查看使用方法，程式更新和反應問題</string>
     <string name="Warning">請勿用於非法用途，所有後果自負！</string>
     <string name="switch1">強制顯示許可權缺失提示</string>
     <string name="switch2">臨時關閉模組</string>
     <string name="switch3">播放影片聲音</string>
-    <string name="switch4">強制每個應用程序使用私有目錄（無論許可權如何）</string>
+    <string name="switch4">強制每個應用程式使用私有目錄（無論許可權如何）</string>
     <string name="switch5">關閉提示消息</string>
     <string name="permission_lack_warn">無許可權</string>
-    <string name="permission_description">訪問本地目錄的許可權用於設定設定檔，如果拒絕，您需要手動設定設定檔。</string>
+    <string name="permission_description">存取本機目錄的許可權用於設定配置檔案，如果拒絕，您需要手動設定配置檔案。</string>
     <string name="positive">確定</string>
     <string name="negative">拒絕</string>
 </resources>
