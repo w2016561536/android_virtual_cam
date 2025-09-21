@@ -1,73 +1,56 @@
-# android_virtual_cam
+# Android Virtual Camera (Xposed Module)
 
-[简体中文](./README.md) | [繁體中文](./README_tc.md) | [English](./README_en.md)
+> **Disclaimer:** Do not use this project for any illegal purpose. You are solely responsible for every action performed with it.
 
-基于Xposed的虚拟摄像头
+Android Virtual Camera is an Xposed/LSPosed module that replaces the live camera feed of other applications with user-provided media. It supports both the legacy `Camera` API and the modern `camera2` API.
 
-# 请勿用于任何非法用途，所有后果自负。
+## Requirements
 
-### 中国大陆加速地址（Gitee平台）： https://gitee.com/w2016561536/android_virtual_cam
+- Android 5.0 or newer.
+- A rooted device with an Xposed-compatible framework (e.g. LSPosed) that can scope the target application.
+- Storage access for the target application so it can read the replacement media files.
 
-## 支持平台：
+## Quick start
 
-- 安卓5.0+
+1. Install the module and enable it for the applications where you want to spoof the camera feed. Frameworks with per-app scopes must target the desired applications instead of the system framework.
+2. Grant the target application **Read** and **Write** storage permissions in Android settings, then force-stop the app so it can pick up the change. If the application cannot request the permission, the module will redirect the storage location automatically (see below).
+3. Launch the target application and open its camera. If the app cannot access shared storage you will receive a toast message indicating that the `Camera1` directory has been redirected to the private path `Android/data/<package-name>/files/Camera1/`. Otherwise the default path is `/storage/emulated/0/DCIM/Camera1/`. Create the directory manually if it does not exist.
+4. Place a replacement video named `virtual.mp4` inside the `Camera1` directory. When the preview opens the module logs the required resolution; the replacement video **must** match this resolution for the preview to display correctly.
+5. (Optional) To spoof captured photos, place a still image named `1000.bmp` inside the same directory. The module now checks the file before using it—if the bitmap is missing or cannot be decoded it will keep the original capture data so the calling application no longer crashes.
+6. Configure optional behaviour using the control files listed below or via the switches exposed in the companion application.
 
-## 使用方法
+### Control files
 
-1. 安装此模块，并在Xposed中启用此模块，Lsposed等包含作用域的框架需要选择目标app，无需选择系统框架。
-   
-2. 在系统设置中，授予目标应用读取本地存储的权限，并强制结束目标应用程序。若应用程序未申请此权限，请见步骤3。
-   
-3. 打开目标应用，若应用未能获得读取存储的权限，则会以气泡消息提示，`Camera1`目录被重定向至应用程序私有目录`/[内部存储]/Android/data/[应用包名]/files/Camera1/`。若未提示，则默认`Camera1`目录为`/[内部存储]/DCIM/Camera1/`。若目录不存在，请手动创建。
+| File name | Location | Effect | Scope |
+|-----------|----------|--------|-------|
+| `disable.jpg` | `Camera1/` | Temporarily disables all camera replacement features. | Global |
+| `no-silent.jpg` | `Camera1/` | Plays audio when the replacement video is rendered. | Global |
+| `no_toast.jpg` | `Camera1/` | Silences in-app toast messages. | Global |
+| `force_show.jpg` | `Camera1/` | Forces directory redirection toasts to display again. | Global |
+| `private_dir.jpg` | `Camera1/` | Forces every scoped application to use its private storage directory. | Per app |
 
-> 注意：私有目录下的`Camera1`仅对该应用单独生效。
+> The companion app toggles create and delete these files automatically. You can also manage them manually if preferred.
 
-4. 在目标应用中打开相机预览，会以气泡消息提示“宽：……高：……”，需要根据此分辨率数据制作替换视频，放置于`Camera1`目录下，并命名为`virtual.mp4`，若打开相机并无提示消息，则无需调整视频分辨率。
-   
-5. 若在目标应用中拍照却显示真实图片，且出现气泡消息`发现拍照`和分辨率，则需根据此分辨率数据准备一张照片，命名为`1000.bmp`，放入`Camera1`目录下（支持其它格式改后缀为bmp）。如果拍照时无气泡消息提示，则`1000.bmp`无效。
-   
-6. 如果需要播放视频的声音，需在`/[内部存储]/DCIM/Camera1/`目录下创建`no-silent.jpg`文件。（全局实时生效）
-   
-7. 如果需要临时停用视频替换，需在`/[内部存储]/DCIM/Camera1/`目录下创建`disable.jpg`文件。（全局实时生效）
+## Logging and diagnostics
 
-8. 如果觉得Toast消息烦，可以在`/[内部存储]/DCIM/Camera1/`目录下创建`no_toast.jpg`文件。（全局实时生效）
+- The module now logs detailed capture information (missing bitmap, compression failures, generated buffer sizes) to the Xposed log. Use this to verify whether replacement media is being applied.
+- The companion application writes additional Logcat entries under the `VCamMainActivity` tag when switches are toggled or permissions are requested, which helps diagnosing configuration problems.
 
-9. 目录重定向消息默认只显示一次，如果错过了目录重定向的Toast消息，可以在`/[内部存储]/DCIM/Camera1/`目录下创建`force_show.jpg`文件来覆盖默认设定。（全局实时生效）
+## Troubleshooting
 
-10. 如果需要为每一个应用程序分配视频，可以在`/[内部存储]/DCIM/Camera1/`目录下创建`private_dir.jpg`强制使用应用程序私有目录。（全局实时生效）
+- **Front camera orientation issues** – Most front-camera previews require the replacement video to be flipped horizontally and rotated 90° clockwise. Always ensure the processed video resolution matches the value shown in the toast message. Some devices may not require any rotation.
+- **Black preview or camera fails to open** – A few applications (notably some system cameras) cannot be hooked reliably. Ensure the `virtual.mp4` file resides directly in `DCIM/Camera1/` and not in a nested `Camera1/Camera1/` structure.
+- **Distorted or garbled preview** – The replacement video resolution does not match the preview resolution reported by the module.
+- **Captured photo shows the real camera** – Ensure `1000.bmp` matches the capture resolution shown in the toast message. If the image cannot be decoded the module falls back to the original photo and logs the reason in the Xposed log.
+- **`disable.jpg` appears to have no effect** – For module versions up to 4.0, control files under `/DCIM/Camera1/` apply only to applications that can access shared storage. Applications without that permission must create the files inside their private `Camera1` directory. Starting with version 4.1, the shared storage location is honoured regardless of the target app's storage permission state.
 
-> 注意：6~10的配置开关均在应用程序中，您可以快捷地在应用程序中配置，也可以手动创建文件。
+## Reporting issues
 
-## 常见问题
+Please open a GitHub issue and attach the Xposed module log as well as any relevant logcat output. Including the module's diagnostic log lines greatly speeds up reproducing camera issues.
 
-A1. 前置摄像头方向问题？  
-Q1. 大多数情况下,替换前置摄像头的视频需要水平翻转并右旋90度，并且视频***处理后***的分辨率应与气泡消息内分辨率相同。但有时这并不需要，具体请根据实际情况判断。
+## Credits
 
+- Hooking approach inspired by [wangwei1237/CameraHook](https://github.com/wangwei1237/CameraHook)
+- Hardware H.264 decoding adapted from [zhantong/Android-VideoToImages](https://github.com/zhantong/Android-VideoToImages)
+- JPEG to YUV conversion based on [jacke121's article](https://blog.csdn.net/jacke121/article/details/73888732)
 
-Q2. 画面黑屏，相机启动失败？  
-A2. 目前有些应用并不能成功替换（特别是系统相机）。或者是因为视频路径不对（是否创建了两级Camera1目录，如`./DCIM/Camera1/Camera1/virtual.mp4`，但只需要一级目录）。
-
-
-Q3. 画面花屏？  
-A3. 视频分辨率不对。
-
-Q4. 画面扭曲，变形？  
-A4. 请使用剪辑软件修改原视频来匹配屏幕。
-
-Q5. 创建`disable.jpg`无效？  
-A5. 如果应用版本`<=4.0`，那么`[内部存储]/DCIM/Camera1`目录下的文件对**具有访问存储权限**的应用生效，其余无权限应用应在**私有目录**下创建  
-如果应用版本`>=4.1`，那么应在`[内部存储]/DCIM/Camera1`创建，无论目标应用是否具有权限。
-
-
-## 反馈问题
-
-请直接在issues中反馈，如果为BUG反馈，请附带Xposed**模块**日志信息。
-
-
-## 致谢:
-
-提供HOOK思路: https://github.com/wangwei1237/CameraHook  
-
-H264硬解码： https://github.com/zhantong/Android-VideoToImages  
-
-JPEG转YUV： https://blog.csdn.net/jacke121/article/details/73888732  

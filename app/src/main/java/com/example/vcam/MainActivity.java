@@ -23,6 +23,8 @@ import java.io.IOException;
 
 public class MainActivity extends Activity {
 
+    private static final String TAG = "VCamMainActivity";
+
     private Switch force_show_switch;
     private Switch disable_switch;
     private Switch play_sound_switch;
@@ -35,10 +37,12 @@ public class MainActivity extends Activity {
         if (grantResults.length > 0) {
             if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
                 Toast.makeText(MainActivity.this, R.string.permission_lack_warn, Toast.LENGTH_SHORT).show();
+                Log.w(TAG, "Storage permission denied by user");
             }else {
                 File camera_dir = new File (Environment.getExternalStorageDirectory().getAbsolutePath()+"/DCIM/Camera1/");
                 if (!camera_dir.exists()){
                     camera_dir.mkdir();
+                    Log.d(TAG, "Created camera directory after permission grant: " + camera_dir.getAbsolutePath());
                 }
             }
         }
@@ -54,6 +58,7 @@ public class MainActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        Log.d(TAG, "onCreate: initializing controls");
 
         Button repo_button = findViewById(R.id.button);
         force_show_switch = findViewById(R.id.switch1);
@@ -82,6 +87,7 @@ public class MainActivity extends Activity {
 
         disable_switch.setOnCheckedChangeListener((compoundButton, b) -> {
             if (compoundButton.isPressed()) {
+                Log.d(TAG, "Disable switch toggled by user: " + b);
                 if (!has_permission()) {
                     request_permission();
                 } else {
@@ -104,6 +110,7 @@ public class MainActivity extends Activity {
 
         force_show_switch.setOnCheckedChangeListener((compoundButton, b) -> {
             if (compoundButton.isPressed()) {
+                Log.d(TAG, "Force-show switch toggled by user: " + b);
                 if (!has_permission()) {
                     request_permission();
                 } else {
@@ -128,6 +135,7 @@ public class MainActivity extends Activity {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
                 if (compoundButton.isPressed()) {
+                    Log.d(TAG, "Play-sound switch toggled by user: " + b);
                     if (!has_permission()) {
                         request_permission();
                     } else {
@@ -151,6 +159,7 @@ public class MainActivity extends Activity {
 
         force_private_dir.setOnCheckedChangeListener((compoundButton, b) -> {
             if (compoundButton.isPressed()) {
+                Log.d(TAG, "Force-private-dir switch toggled by user: " + b);
                 if (!has_permission()) {
                     request_permission();
                 } else {
@@ -174,6 +183,7 @@ public class MainActivity extends Activity {
 
         disable_toast_switch.setOnCheckedChangeListener((compoundButton, b) -> {
             if (compoundButton.isPressed()) {
+                Log.d(TAG, "Disable-toast switch toggled by user: " + b);
                 if (!has_permission()) {
                     request_permission();
                 } else {
@@ -203,6 +213,7 @@ public class MainActivity extends Activity {
                 AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
                 builder.setTitle(R.string.permission_lack_warn);
                 builder.setMessage(R.string.permission_description);
+                Log.w(TAG, "Requesting storage permission from user");
 
                 builder.setNegativeButton(R.string.negative, (dialogInterface, i) -> Toast.makeText(MainActivity.this, R.string.permission_lack_warn, Toast.LENGTH_SHORT).show());
 
@@ -214,15 +225,17 @@ public class MainActivity extends Activity {
 
     private boolean has_permission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return this.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_DENIED
+            boolean granted = this.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_DENIED
                     && this.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_DENIED;
+            Log.d(TAG, "Checking storage permission, granted=" + granted);
+            return granted;
         }
         return true;
     }
 
 
     private void sync_statue_with_files() {
-        Log.d(this.getApplication().getPackageName(), "【VCAM】[sync]同步开关状态");
+        Log.d(TAG, "Synchronizing toggle states with control files");
 
         if (!has_permission()){
             request_permission();
@@ -247,6 +260,12 @@ public class MainActivity extends Activity {
 
         File disable_toast_file = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/DCIM/Camera1/no_toast.jpg");
         disable_toast_switch.setChecked(disable_toast_file.exists());
+
+        Log.d(TAG, "Switch states -> disable: " + disable_switch.isChecked()
+                + ", forceShow: " + force_show_switch.isChecked()
+                + ", playSound: " + play_sound_switch.isChecked()
+                + ", forcePrivateDir: " + force_private_dir.isChecked()
+                + ", disableToast: " + disable_toast_switch.isChecked());
 
     }
 
