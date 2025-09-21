@@ -1010,6 +1010,10 @@ public class HookMain implements IXposedHookLoadPackage {
 
     }
 
+    private File getReplacementImageFile() {
+        return new File(video_path, "1000.bmp");
+    }
+
     private void process_a_shot_jpeg(XC_MethodHook.MethodHookParam param, int index) {
         try {
             XposedBridge.log("【VCAM】第二个jpeg:" + param.args[index].toString());
@@ -1040,11 +1044,28 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (control_file.exists()) {
                         return;
                     }
+                    File replacementFile = getReplacementImageFile();
+                    if (!replacementFile.exists()) {
+                        XposedBridge.log("【VCAM】[capture]Replacement image missing at " + replacementFile.getAbsolutePath() + ", keeping original data");
+                        return;
+                    }
 
-                    Bitmap pict = getBMP(video_path + "1000.bmp");
+                    Bitmap pict = getBMP(replacementFile.getAbsolutePath());
+                    if (pict == null) {
+                        XposedBridge.log("【VCAM】[capture]Failed to load replacement bitmap, keeping original data");
+                        return;
+                    }
                     ByteArrayOutputStream temp_array = new ByteArrayOutputStream();
-                    pict.compress(Bitmap.CompressFormat.JPEG, 100, temp_array);
+                    boolean compressed = pict.compress(Bitmap.CompressFormat.JPEG, 100, temp_array);
+                    if (!compressed) {
+                        XposedBridge.log("【VCAM】[capture]Failed to compress replacement bitmap, keeping original data");
+                        pict.recycle();
+                        return;
+                    }
                     byte[] jpeg_data = temp_array.toByteArray();
+                    temp_array.close();
+                    pict.recycle();
+                    XposedBridge.log("【VCAM】[capture]Providing JPEG replacement, size: " + jpeg_data.length);
                     paramd.args[0] = jpeg_data;
                 } catch (Exception ee) {
                     XposedBridge.log("【VCAM】" + ee.toString());
@@ -1081,7 +1102,23 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (control_file.exists()) {
                         return;
                     }
-                    input = getYUVByBitmap(getBMP(video_path + "1000.bmp"));
+                    File replacementFile = getReplacementImageFile();
+                    if (!replacementFile.exists()) {
+                        XposedBridge.log("【VCAM】[capture]Replacement image missing at " + replacementFile.getAbsolutePath() + ", keeping original YUV data");
+                        return;
+                    }
+                    Bitmap replacementBitmap = getBMP(replacementFile.getAbsolutePath());
+                    if (replacementBitmap == null) {
+                        XposedBridge.log("【VCAM】[capture]Failed to load replacement bitmap, keeping original YUV data");
+                        return;
+                    }
+                    input = getYUVByBitmap(replacementBitmap);
+                    replacementBitmap.recycle();
+                    if (input == null) {
+                        XposedBridge.log("【VCAM】[capture]Unable to generate YUV data from replacement image, keeping original data");
+                        return;
+                    }
+                    XposedBridge.log("【VCAM】[capture]Providing YUV replacement, size: " + input.length);
                     paramd.args[0] = input;
                 } catch (Exception ee) {
                     XposedBridge.log("【VCAM】" + ee.toString());
@@ -1185,7 +1222,13 @@ public class HookMain implements IXposedHookLoadPackage {
 
     //以下代码来源：https://blog.csdn.net/jacke121/article/details/73888732
     private Bitmap getBMP(String file) throws Throwable {
-        return BitmapFactory.decodeFile(file);
+        Bitmap bitmap = BitmapFactory.decodeFile(file);
+        if (bitmap == null) {
+            XposedBridge.log("【VCAM】[capture]Failed to decode bitmap from " + file);
+        } else {
+            XposedBridge.log("【VCAM】[capture]Decoded bitmap from " + file + " width: " + bitmap.getWidth() + " height: " + bitmap.getHeight());
+        }
+        return bitmap;
     }
 
     private static byte[] rgb2YCbCr420(int[] pixels, int width, int height) {
