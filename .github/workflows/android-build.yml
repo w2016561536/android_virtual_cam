@@ -1,0 +1,118 @@
+name: Android Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: gradle
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Validate signing secrets
+        id: signing
+        run: |
+          missing=()
+          for var in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!var}" ]; then
+              missing+=("$var")
+            fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Signing secrets are not fully configured: ${missing[*]}" >&2
+            echo "signing_ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "signing_ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip signed build (missing secrets)
+        if: steps.signing.outputs.signing_ready != 'true'
+        run: echo 'Skipping signed release build because required signing secrets are not configured.'
+
+      - name: Decode release keystore
+        if: steps.signing.outputs.signing_ready == 'true'
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > release.keystore
+
+      - name: Build signed release with Gradle
+        if: steps.signing.outputs.signing_ready == 'true'
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+        run: |
+          for var in ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!var}" ]; then
+              echo "$var secret is not configured." >&2
+              exit 1
+            fi
+          done
+          ./gradlew --no-daemon clean assembleRelease \
+            -Pandroid.injected.signing.store.file="$ANDROID_KEYSTORE_PATH" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+
+      - name: Verify APK was built
+        if: steps.signing.outputs.signing_ready == 'true'
+        run: |
+          if [ ! -f app/build/outputs/apk/release/app-release.apk ]; then
+            echo "Error: APK file not found at app/build/outputs/apk/release/app-release.apk" >&2
+            exit 1
+          fi
+          echo "APK built successfully"
+          ls -lh app/build/outputs/apk/release/
+
+      - name: Get version info
+        if: steps.signing.outputs.signing_ready == 'true' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        id: version
+        run: |
+          VERSION_NAME=$(grep "versionName" app/build.gradle | awk '{print $2}' | tr -d '"')
+          VERSION_CODE=$(grep "versionCode" app/build.gradle | awk '{print $2}')
+          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${VERSION_NAME} (${VERSION_CODE})"
+
+      - name: Publish signed APK to GitHub Release
+        if: steps.signing.outputs.signing_ready == 'true' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: app/build/outputs/apk/release/app-release.apk
+          name: Android Virtual Cam v${{ steps.version.outputs.version_name }}
+          body: |
+            ## Android Virtual Cam Release
+            
+            **Version:** ${{ steps.version.outputs.version_name }} (Build ${{ steps.version.outputs.version_code }})
+            
+            ### 下载 / Download
+            - 签名APK / Signed APK: `app-release.apk`
+            
+            ### 安装说明 / Installation
+            1. 下载签名APK文件 / Download the signed APK file
+            2. 在Android设备上安装 / Install on your Android device
+            3. 在Xposed框架中启用模块 / Enable the module in Xposed framework
+            
+            详细使用说明请查看 [README](https://github.com/${{ github.repository }}/blob/main/README.md)
+            
+            For detailed usage instructions, please see the [README](https://github.com/${{ github.repository }}/blob/main/README.md)
+          draft: false
+          prerelease: false

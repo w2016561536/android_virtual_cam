@@ -12,4 +12,5 @@
     <string name="permission_description">訪問本地目錄的許可權用於設定設定檔，如果拒絕，您需要手動設定設定檔。</string>
     <string name="positive">確定</string>
     <string name="negative">拒絕</string>
+    <string name="settings_title">設定</string>
 </resources>

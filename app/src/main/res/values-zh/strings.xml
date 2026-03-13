@@ -12,4 +12,5 @@
     <string name="permission_description">访问本地目录的权限用于设定配置文件，如果拒绝，您需要手动设定配置文件。</string>
     <string name="positive">确定</string>
     <string name="negative">拒绝</string>
+    <string name="settings_title">设置</string>
 </resources>

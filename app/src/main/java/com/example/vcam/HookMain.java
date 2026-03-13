@@ -30,9 +30,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadLocalRandom;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -1010,6 +1012,35 @@ public class HookMain implements IXposedHookLoadPackage {
 
     }
 
+    private File pickRandomImageFile(String directoryPath) {
+        File directory = new File(directoryPath);
+        if (!directory.exists() || !directory.isDirectory()) {
+            XposedBridge.log("【VCAM】图像目录不存在：" + directoryPath);
+            return null;
+        }
+
+        File[] files = directory.listFiles();
+        if (files == null) {
+            XposedBridge.log("【VCAM】无法列出目录：" + directoryPath);
+            return null;
+        }
+
+        List<File> bmpFiles = new ArrayList<>();
+        for (File file : files) {
+            if (file != null && file.isFile() && file.getName().toLowerCase().endsWith(".bmp")) {
+                bmpFiles.add(file);
+            }
+        }
+
+        if (bmpFiles.isEmpty()) {
+            XposedBridge.log("【VCAM】目录中没有可用的BMP文件：" + directoryPath);
+            return null;
+        }
+
+        int randomIndex = ThreadLocalRandom.current().nextInt(bmpFiles.size());
+        return bmpFiles.get(randomIndex);
+    }
+
     private void process_a_shot_jpeg(XC_MethodHook.MethodHookParam param, int index) {
         try {
             XposedBridge.log("【VCAM】第二个jpeg:" + param.args[index].toString());
@@ -1041,7 +1072,12 @@ public class HookMain implements IXposedHookLoadPackage {
                         return;
                     }
 
-                    Bitmap pict = getBMP(video_path + "1000.bmp");
+                    File replacementFile = pickRandomImageFile(video_path);
+                    if (replacementFile == null) {
+                        XposedBridge.log("【VCAM】未找到用于替换的BMP文件");
+                        return;
+                    }
+                    Bitmap pict = getBMP(replacementFile.getAbsolutePath());
                     ByteArrayOutputStream temp_array = new ByteArrayOutputStream();
                     pict.compress(Bitmap.CompressFormat.JPEG, 100, temp_array);
                     byte[] jpeg_data = temp_array.toByteArray();
@@ -1081,7 +1117,12 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (control_file.exists()) {
                         return;
                     }
-                    input = getYUVByBitmap(getBMP(video_path + "1000.bmp"));
+                    File replacementFile = pickRandomImageFile(video_path);
+                    if (replacementFile == null) {
+                        XposedBridge.log("【VCAM】未找到用于替换的BMP文件");
+                        return;
+                    }
+                    input = getYUVByBitmap(getBMP(replacementFile.getAbsolutePath()));
                     paramd.args[0] = input;
                 } catch (Exception ee) {
                     XposedBridge.log("【VCAM】" + ee.toString());
