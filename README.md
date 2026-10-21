@@ -1,12 +1,18 @@
 # android_virtual_cam
 
-[简体中文](https://github.com/Xposed-Modules-Repo/com.example.vcam/blob/main/README.md) | [繁體中文](https://github.com/Xposed-Modules-Repo/com.example.vcam/blob/main/README_tc.md) | [English](https://github.com/Xposed-Modules-Repo/com.example.vcam/blob/main/README_en.md)
+[简体中文](./README.md) | [繁體中文](./README_tc.md) | [English](./README_en.md)
 
-基于Xposed的虚拟摄像头
+这是 [w2016561536/android_virtual_cam](https://github.com/w2016561536/android_virtual_cam) 的继续维护版本。上游自 2022 年起没有更新。本仓库的安装包名是 `io.github.hpjxiangbabang.vcam`，应用名是 VCAM Next，不会覆盖原模块。原作者的版权和 MIT 许可证保留在 `LICENSE`。
 
 # 请勿用于任何非法用途，所有后果自负。
 
-### 中国大陆加速地址（Gitee平台）： https://gitee.com/w2016561536/android_virtual_cam
+## 这个版本新增
+
+- 相机要求的宽高和原来的气泡提示，会留在应用里的「相机请求记录」中，可以反复查看。
+- 开关「分辨率不同时等比放入」：视频分辨率和对方要求的不一致时，按对方的宽高做一帧，黑底居中等比放入。开关关闭时，仍要求视频分辨率完全相同。
+- 去掉了「前往仓库」和「Gitee」按钮。
+
+原作者的 Gitee 镜像： https://gitee.com/w2016561536/android_virtual_cam
 
 ## 支持平台：
 
@@ -22,7 +28,7 @@
 
 > 注意：私有目录下的`Camera1`仅对该应用单独生效。
 
-4. 在目标应用中打开相机预览，会以气泡消息提示“宽：……高：……”，需要根据此分辨率数据制作替换视频，放置于`Camera1`目录下，并命名为`virtual.mp4`，若打开相机并无提示消息，则无需调整视频分辨率。
+4. 在目标应用中打开相机预览后，回到 VCAM Next 查看「相机请求记录」里的宽和高。将替换视频命名为 `virtual.mp4`，放到记录中显示的 `Camera1` 目录。默认要求视频分辨率与记录中的宽高完全相同。若打开「分辨率不同时等比放入」，则按记录中的宽高输出，视频按比例放在中间，多出的地方是黑边。
    
 5. 若在目标应用中拍照却显示真实图片，且出现气泡消息`发现拍照`和分辨率，则需根据此分辨率数据准备一张照片，命名为`1000.bmp`，放入`Camera1`目录下（支持其它格式改后缀为bmp）。如果拍照时无气泡消息提示，则`1000.bmp`无效。
    
@@ -61,7 +67,8 @@ A5. 如果应用版本`<=4.0`，那么`[内部存储]/DCIM/Camera1`目录下的�
 
 ## 反馈问题
 
-请直接在issues中反馈，如果为BUG反馈，请附带Xposed**模块**日志信息。
+请在本仓库的 issues 中反馈： https://github.com/Hpjxiangbabang/android_virtual_cam/issues  
+如果是缺陷，请附带本应用里的「相机请求记录」，以及 LSPosed 模块日志。
 
 
 ## 致谢:

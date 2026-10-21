@@ -1,4 +1,4 @@
-package com.example.vcam;
+package io.github.hpjxiangbabang.vcam;
 
 
 import android.Manifest;
@@ -6,16 +6,14 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Application;
 import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
-import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -28,6 +26,8 @@ public class MainActivity extends Activity {
     private Switch play_sound_switch;
     private Switch force_private_dir;
     private Switch disable_toast_switch;
+    private Switch fit_inside_switch;
+    private TextView log_view;
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
@@ -48,6 +48,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         sync_statue_with_files();
+        show_log();
     }
 
     @Override
@@ -55,30 +56,25 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button repo_button = findViewById(R.id.button);
         force_show_switch = findViewById(R.id.switch1);
         disable_switch = findViewById(R.id.switch2);
         play_sound_switch = findViewById(R.id.switch3);
         force_private_dir = findViewById(R.id.switch4);
         disable_toast_switch = findViewById(R.id.switch5);
+        fit_inside_switch = findViewById(R.id.switch6);
+        log_view = findViewById(R.id.log_view);
 
-
+        findViewById(R.id.log_refresh).setOnClickListener(v -> show_log());
+        findViewById(R.id.log_clear).setOnClickListener(v -> {
+            if (!has_permission()) {
+                request_permission();
+                return;
+            }
+            AppLog.clear();
+            show_log();
+        });
 
         sync_statue_with_files();
-
-        repo_button.setOnClickListener(v -> {
-
-            Uri uri = Uri.parse("https://github.com/w2016561536/android_virtual_cam");
-            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-            startActivity(intent);
-        });
-
-        Button repo_button_chinamainland = findViewById(R.id.button2);
-        repo_button_chinamainland.setOnClickListener(view -> {
-            Uri uri = Uri.parse("https://gitee.com/w2016561536/android_virtual_cam");
-            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-            startActivity(intent);
-        });
 
         disable_switch.setOnCheckedChangeListener((compoundButton, b) -> {
             if (compoundButton.isPressed()) {
@@ -194,6 +190,28 @@ public class MainActivity extends Activity {
             }
         });
 
+        fit_inside_switch.setOnCheckedChangeListener((compoundButton, b) -> {
+            if (compoundButton.isPressed()) {
+                if (!has_permission()) {
+                    request_permission();
+                } else {
+                    File fit_inside_file = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/DCIM/Camera1/fit_inside.jpg");
+                    if (fit_inside_file.exists() != b) {
+                        if (b) {
+                            try {
+                                fit_inside_file.createNewFile();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        } else {
+                            fit_inside_file.delete();
+                        }
+                    }
+                }
+                sync_statue_with_files();
+            }
+        });
+
     }
 
     private void request_permission() {
@@ -248,6 +266,25 @@ public class MainActivity extends Activity {
         File disable_toast_file = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/DCIM/Camera1/no_toast.jpg");
         disable_toast_switch.setChecked(disable_toast_file.exists());
 
+        File fit_inside_file = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/DCIM/Camera1/fit_inside.jpg");
+        fit_inside_switch.setChecked(fit_inside_file.exists());
+
+    }
+
+    private void show_log() {
+        if (log_view == null) {
+            return;
+        }
+        if (!has_permission()) {
+            log_view.setText(R.string.log_need_permission);
+            return;
+        }
+        String text = AppLog.read();
+        if (text.length() == 0) {
+            log_view.setText(R.string.log_empty);
+        } else {
+            log_view.setText(text);
+        }
     }
 
 

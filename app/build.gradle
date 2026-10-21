@@ -3,14 +3,15 @@ plugins {
 }
 
 android {
-    compileSdk 31
+    namespace 'io.github.hpjxiangbabang.vcam'
+    compileSdk 35
 
     defaultConfig {
-        applicationId "com.example.vcam"
+        applicationId "io.github.hpjxiangbabang.vcam"
         minSdk 21
         targetSdk 26
-        versionCode 28
-        versionName "4.4"
+        versionCode 1
+        versionName "1.0.0"
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
@@ -24,6 +25,9 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
+    }
+    buildFeatures {
+        buildConfig true
     }
 }
 

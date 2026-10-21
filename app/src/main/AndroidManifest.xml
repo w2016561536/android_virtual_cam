@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.vcam">
+    package="io.github.hpjxiangbabang.vcam">
 
     <application
         android:allowBackup="true"
@@ -21,14 +21,17 @@
             </intent-filter>
         </activity>
 
-
+        <provider
+            android:name=".LogProvider"
+            android:authorities="io.github.hpjxiangbabang.vcam.log"
+            android:exported="true" />
 
         <meta-data
             android:name="xposedmodule"
             android:value="true" />
         <meta-data
             android:name="xposeddescription"
-            android:value="安卓虚拟摄像头" />
+            android:value="安卓虚拟摄像头继续维护版" />
         <meta-data
             android:name="xposedminversion"
             android:value="51" />

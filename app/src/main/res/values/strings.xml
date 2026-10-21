@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">VCAM</string>
+    <string name="app_name">VCAM Next</string>
     <string name="click_to_go_to_repo">click to go to repository</string>
-    <string name="description">Please go to online repository to check for latest update, latest usgae and report bugs</string>
+    <string name="description">Open the camera in the target app, then check the width and height in the log below.</string>
     <string name="Warning">DO NOT USE FOR ANY ILLEGAL PURPOSE !!YOU NEED TO TAKE ALL RESPONSIBILITY AND CONSEQUENCE!!</string>
     <string name="switch1">Force to show permission lack warning</string>
     <string name="switch2">Disable the module temporarily (On is disable)</string>
@@ -10,8 +10,15 @@
     <string name="switch4">Force every app use private directory</string>
     <string name="gitee" translatable="false">Gitee平台（中国大陆更快）</string>
     <string name="switch5">Disable toast message</string>
+    <string name="switch6">Fit video inside a different resolution (black bars)</string>
     <string name="permission_lack_warn">Missing permissions</string>
     <string name="permission_description">The permission to access local storage is used to set up configuration files. If refused you need to set up file manually.</string>
     <string name="positive">Sure</string>
     <string name="negative">Refuse</string>
+    <string name="log_title">Camera request log</string>
+    <string name="log_hint">Width and height that used to flash by are kept here. The newest line is on top. The same text is not repeated; its time is updated instead. Turning off toast does not stop this log.</string>
+    <string name="log_empty">No record yet. Open the camera in the target app, then come back and tap refresh.</string>
+    <string name="log_need_permission">Storage permission is required to read the log.</string>
+    <string name="log_refresh">Refresh</string>
+    <string name="log_clear">Clear</string>
 </resources>

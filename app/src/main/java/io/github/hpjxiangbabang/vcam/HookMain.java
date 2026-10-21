@@ -1,4 +1,4 @@
-package com.example.vcam;
+package io.github.hpjxiangbabang.vcam;
 
 
 import android.Manifest;
@@ -51,8 +51,8 @@ public class HookMain implements IXposedHookLoadPackage {
     public static Camera start_preview_camera;
     public static volatile byte[] data_buffer = {0};
     public static byte[] input;
-    public static int mhight;
-    public static int mwidth;
+    public static volatile int mhight;
+    public static volatile int mwidth;
     public static boolean is_someone_playing;
     public static boolean is_hooked;
     public static VideoToFrames hw_decode_obj;
@@ -93,6 +93,79 @@ public class HookMain implements IXposedHookLoadPackage {
 
     public static Class c2_state_callback;
     public Context toast_content;
+    public static volatile Context log_context;
+    private static int loggedSrcW;
+    private static int loggedSrcH;
+    private static int loggedDstW;
+    private static int loggedDstH;
+
+    public static boolean fitInsideEnabled() {
+        try {
+            return new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/fit_inside.jpg").exists();
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    public static byte[] presentFrame(byte[] nv21, int srcW, int srcH) {
+        if (nv21 == null || !fitInsideEnabled()) {
+            return nv21;
+        }
+        int dstW = mwidth >= 2 ? mwidth : 1920;
+        int dstH = mhight >= 2 ? mhight : 1080;
+        if (srcW < 2 || srcH < 2) {
+            return nv21;
+        }
+        if (nv21.length < srcW * srcH * 3 / 2) {
+            return nv21;
+        }
+        if (dstW == srcW && dstH == srcH) {
+            return nv21;
+        }
+        byte[] fitted = FrameFitter.fitNv21(nv21, srcW, srcH, dstW, dstH);
+        if (fitted == null) {
+            return nv21;
+        }
+        if (srcW != loggedSrcW || srcH != loggedSrcH || dstW != loggedDstW || dstH != loggedDstH) {
+            loggedSrcW = srcW;
+            loggedSrcH = srcH;
+            loggedDstW = dstW;
+            loggedDstH = dstH;
+            try {
+                AppLog.appendFromHook(log_context, "等比放入\n视频：" + srcW + "×" + srcH + "\n画面：" + dstW + "×" + dstH + "\n多出的地方是黑边");
+            } catch (Throwable ignored) {
+            }
+        }
+        return fitted;
+    }
+
+    private String currentPackage() {
+        if (toast_content == null) {
+            return "未知应用";
+        }
+        try {
+            return toast_content.getPackageName();
+        } catch (Exception e) {
+            return "未知应用";
+        }
+    }
+
+    private void record(String message) {
+        try {
+            if (!AppLog.appendFromHook(toast_content, message)) {
+                XposedBridge.log("【VCAM】[log]写入记录失败");
+            }
+        } catch (Throwable t) {
+            XposedBridge.log("【VCAM】[log]" + t);
+        }
+        if (toast_content != null && need_to_show_toast) {
+            try {
+                Toast.makeText(toast_content, message, Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                XposedBridge.log("【VCAM】[toast]" + e.toString());
+            }
+        }
+    }
 
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws Exception {
         XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader, "setPreviewTexture", SurfaceTexture.class, new XC_MethodHook() {
@@ -134,13 +207,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 } else {
                     File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                     need_to_show_toast = !toast_control.exists();
-                    if (toast_content != null && need_to_show_toast) {
-                        try {
-                            Toast.makeText(toast_content, "不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path, Toast.LENGTH_SHORT).show();
-                        } catch (Exception ee) {
-                            XposedBridge.log("【VCAM】[toast]" + ee.toString());
-                        }
-                    }
+                    record("不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path);
                 }
             }
         });
@@ -164,13 +231,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                 need_to_show_toast = !toast_control.exists();
                 if (!file.exists()) {
-                    if (toast_content != null && need_to_show_toast) {
-                        try {
-                            Toast.makeText(toast_content, "不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path, Toast.LENGTH_SHORT).show();
-                        } catch (Exception ee) {
-                            XposedBridge.log("【VCAM】[toast]" + ee.toString());
-                        }
-                    }
+                    record("不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path);
                     return;
                 }
                 XposedBridge.log("【VCAM】1位参数初始化相机，类：" + c2_state_callback.toString());
@@ -199,13 +260,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                     need_to_show_toast = !toast_control.exists();
                     if (!file.exists()) {
-                        if (toast_content != null && need_to_show_toast) {
-                            try {
-                                Toast.makeText(toast_content, "不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path, Toast.LENGTH_SHORT).show();
-                            } catch (Exception ee) {
-                                XposedBridge.log("【VCAM】[toast]" + ee.toString());
-                            }
-                        }
+                        record("不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path);
                         return;
                     }
                     c2_state_callback = param.args[2].getClass();
@@ -274,13 +329,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                 need_to_show_toast = !toast_control.exists();
                 XposedBridge.log("【VCAM】[record]" + lpparam.packageName);
-                if (toast_content != null && need_to_show_toast) {
-                    try {
-                        Toast.makeText(toast_content, "应用：" + lpparam.appInfo.name + "(" + lpparam.packageName + ")" + "触发了录像，但目前无法拦截", Toast.LENGTH_SHORT).show();
-                    }catch (Exception ee){
-                        XposedBridge.log("【VCAM】[toast]" + Arrays.toString(ee.getStackTrace()));
-                    }
-                }
+                record("应用：" + lpparam.appInfo.name + "(" + lpparam.packageName + ")" + "触发了录像，但目前无法拦截");
             }
         });
 
@@ -291,6 +340,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 if (param.args[0] instanceof Application) {
                     try {
                         toast_content = ((Application) param.args[0]).getApplicationContext();
+                        log_context = toast_content;
                     } catch (Exception ee) {
                         XposedBridge.log("【VCAM】" + ee.toString());
                     }
@@ -328,6 +378,7 @@ public class HookMain implements IXposedHookLoadPackage {
                             File toast_force_file = new File(Environment.getExternalStorageDirectory().getPath()+ "/DCIM/Camera1/force_show.jpg");
                             if ((!lpparam.packageName.equals(BuildConfig.APPLICATION_ID)) && ((!shown_file.exists()) || toast_force_file.exists())) {
                                 try {
+                                    AppLog.appendFromHook(toast_content, lpparam.packageName+"未授予读取本地目录权限，请检查权限\nCamera1目前重定向为 " + toast_content.getExternalFilesDir(null).getAbsolutePath() + "/Camera1/");
                                     Toast.makeText(toast_content, lpparam.packageName+"未授予读取本地目录权限，请检查权限\nCamera1目前重定向为 " + toast_content.getExternalFilesDir(null).getAbsolutePath() + "/Camera1/", Toast.LENGTH_SHORT).show();
                                     FileOutputStream fos = new FileOutputStream(toast_content.getExternalFilesDir(null).getAbsolutePath() + "/Camera1/" + "has_shown");
                                     String info = "shown";
@@ -363,13 +414,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                 need_to_show_toast = !toast_control.exists();
                 if (!file.exists()) {
-                    if (toast_content != null && need_to_show_toast) {
-                        try {
-                            Toast.makeText(toast_content, "不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path, Toast.LENGTH_SHORT).show();
-                        } catch (Exception ee) {
-                            XposedBridge.log("【VCAM】[toast]" + ee.toString());
-                        }
-                    }
+                    record("不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path);
                     return;
                 }
                 File control_file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "disable.jpg");
@@ -468,13 +513,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                 need_to_show_toast = !toast_control.exists();
                 if (!file.exists()) {
-                    if (toast_content != null && need_to_show_toast) {
-                        try {
-                            Toast.makeText(toast_content, "不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path, Toast.LENGTH_SHORT).show();
-                        } catch (Exception ee) {
-                            XposedBridge.log("【VCAM】[toast]" + ee.toString());
-                        }
-                    }
+                    record("不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path);
                     return;
                 }
                 File control_file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "disable.jpg");
@@ -518,13 +557,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                 need_to_show_toast = !toast_control.exists();
                 if (!file.exists()) {
-                    if (toast_content != null && need_to_show_toast) {
-                        try {
-                            Toast.makeText(toast_content, "不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path, Toast.LENGTH_SHORT).show();
-                        } catch (Exception ee) {
-                            XposedBridge.log("【VCAM】[toast]" + ee.toString());
-                        }
-                    }
+                    record("不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path);
                     return;
                 }
                 if (param.args[0].equals(c2_virtual_surface)) {
@@ -572,13 +605,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                 need_to_show_toast = !toast_control.exists();
                 if (!file.exists()) {
-                    if (toast_content != null && need_to_show_toast) {
-                        try {
-                            Toast.makeText(toast_content, "不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path, Toast.LENGTH_SHORT).show();
-                        } catch (Exception ee) {
-                            XposedBridge.log("【VCAM】[toast]" + ee.toString());
-                        }
-                    }
+                    record("不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path);
                     return;
                 }
                 File control_file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "disable.jpg");
@@ -616,15 +643,11 @@ public class HookMain implements IXposedHookLoadPackage {
                 File file = new File(video_path + "virtual.mp4");
                 File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                 need_to_show_toast = !toast_control.exists();
-                if (!file.exists() && need_to_show_toast) {
-                    if (toast_content != null) {
-                        try {
-                            Toast.makeText(toast_content, "不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path, Toast.LENGTH_SHORT).show();
-                        } catch (Exception ee) {
-                            XposedBridge.log("【VCAM】[toast]" + ee.toString());
-                        }
+                if (!file.exists()) {
+                    record("不存在替换视频\n" + lpparam.packageName + "当前路径：" + video_path);
+                    if (need_to_show_toast) {
+                        return;
                     }
-                    return;
                 }
 
                 File control_file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "disable.jpg");
@@ -667,13 +690,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 imageReaderFormat = (int) param.args[2];
                 File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                 need_to_show_toast = !toast_control.exists();
-                if (toast_content != null && need_to_show_toast) {
-                    try {
-                        Toast.makeText(toast_content, "应用创建了渲染器：\n宽：" + param.args[0] + "\n高：" + param.args[1] + "\n一般只需要宽高比与视频相同", Toast.LENGTH_SHORT).show();
-                    } catch (Exception e) {
-                        XposedBridge.log("【VCAM】[toast]" + e.toString());
-                    }
-                }
+                record("应用创建了渲染器：\n应用：" + currentPackage() + "\n宽：" + param.args[0] + "\n高：" + param.args[1] + "\n一般只需要宽高比与视频相同");
             }
         });
 
@@ -848,13 +865,7 @@ public class HookMain implements IXposedHookLoadPackage {
                 File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                 need_to_show_toast = !toast_control.exists();
                 if (!file.exists()) {
-                    if (toast_content != null && need_to_show_toast) {
-                        try {
-                            Toast.makeText(toast_content, "不存在替换视频\n" + toast_content.getPackageName() + "当前路径：" + video_path, Toast.LENGTH_SHORT).show();
-                        } catch (Exception ee) {
-                            XposedBridge.log("【VCAM】[toast]" + ee.toString());
-                        }
-                    }
+                    record("不存在替换视频\n" + currentPackage() + "当前路径：" + video_path);
                     return;
                 }
                 XposedHelpers.findAndHookMethod(param.args[0].getClass(), "createCaptureSession", List.class, CameraCaptureSession.StateCallback.class, Handler.class, new XC_MethodHook() {
@@ -1029,13 +1040,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     XposedBridge.log("【VCAM】JPEG拍照回调初始化：宽：" + onemwidth + "高：" + onemhight + "对应的类：" + loaclcam.toString());
                     File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                     need_to_show_toast = !toast_control.exists();
-                    if (toast_content != null && need_to_show_toast) {
-                        try {
-                            Toast.makeText(toast_content, "发现拍照\n宽：" + onemwidth + "\n高：" + onemhight + "\n格式：JPEG", Toast.LENGTH_SHORT).show();
-                        } catch (Exception e) {
-                            XposedBridge.log("【VCAM】[toast]" + e.toString());
-                        }
-                    }
+                    record("发现拍照\n应用：" + currentPackage() + "\n宽：" + onemwidth + "\n高：" + onemhight + "\n格式：JPEG");
                     File control_file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "disable.jpg");
                     if (control_file.exists()) {
                         return;
@@ -1070,13 +1075,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     XposedBridge.log("【VCAM】YUV拍照回调初始化：宽：" + onemwidth + "高：" + onemhight + "对应的类：" + loaclcam.toString());
                     File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                     need_to_show_toast = !toast_control.exists();
-                    if (toast_content != null && need_to_show_toast) {
-                        try {
-                            Toast.makeText(toast_content, "发现拍照\n宽：" + onemwidth + "\n高：" + onemhight + "\n格式：YUV_420_888", Toast.LENGTH_SHORT).show();
-                        } catch (Exception ee) {
-                            XposedBridge.log("【VCAM】[toast]" + ee.toString());
-                        }
-                    }
+                    record("发现拍照\n应用：" + currentPackage() + "\n宽：" + onemwidth + "\n高：" + onemhight + "\n格式：YUV_420_888");
                     File control_file = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "disable.jpg");
                     if (control_file.exists()) {
                         return;
@@ -1101,13 +1100,7 @@ public class HookMain implements IXposedHookLoadPackage {
         File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
         need_to_show_toast = !toast_control.exists();
         if (!file.exists()) {
-            if (toast_content != null && need_to_show_toast) {
-                try {
-                    Toast.makeText(toast_content, "不存在替换视频\n" + toast_content.getPackageName() + "当前路径：" + video_path, Toast.LENGTH_SHORT).show();
-                } catch (Exception ee) {
-                    XposedBridge.log("【VCAM】[toast]" + ee);
-                }
-            }
+            record("不存在替换视频\n" + currentPackage() + "当前路径：" + video_path);
             need_stop = 1;
         }
         int finalNeed_stop = need_stop;
@@ -1128,13 +1121,7 @@ public class HookMain implements IXposedHookLoadPackage {
                     XposedBridge.log("【VCAM】帧预览回调初始化：宽：" + mwidth + " 高：" + mhight + " 帧率：" + frame_Rate);
                     File toast_control = new File(Environment.getExternalStorageDirectory().getPath() + "/DCIM/Camera1/" + "no_toast.jpg");
                     need_to_show_toast = !toast_control.exists();
-                    if (toast_content != null && need_to_show_toast) {
-                        try {
-                            Toast.makeText(toast_content, "发现预览\n宽：" + mwidth + "\n高：" + mhight + "\n" + "需要视频分辨率与其完全相同", Toast.LENGTH_SHORT).show();
-                        } catch (Exception ee) {
-                            XposedBridge.log("【VCAM】[toast]" + ee.toString());
-                        }
-                    }
+                    record("发现预览\n应用：" + currentPackage() + "\n宽：" + mwidth + "\n高：" + mhight + "\n" + (fitInsideEnabled() ? "已开启等比放入，视频不必和这个宽高相同" : "需要视频分辨率与其完全相同"));
                     if (finalNeed_stop == 1) {
                         return;
                     }

@@ -2,6 +2,8 @@
 
 [简体中文](./README.md) | [繁體中文](./README_tc.md) | [English](./README_en.md)
 
+這是 [w2016561536/android_virtual_cam](https://github.com/w2016561536/android_virtual_cam) 的繼續維護版本。安裝包名是 `io.github.hpjxiangbabang.vcam`（VCAM Next），不會覆蓋原模組。新增的應用內記錄和等比放入開關見簡體中文 README。
+
 基於Xposed的虛擬攝影機
 
 # 請勿用於任何非法用途，所有後果自負。

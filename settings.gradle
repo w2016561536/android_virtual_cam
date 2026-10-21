@@ -10,5 +10,5 @@ dependencyResolutionManagement {
         jcenter() // Warning: this repository is going to shut down soon
     }
 }
-rootProject.name = "VCAM"
+rootProject.name = "VCAM-Next"
 include ':app'

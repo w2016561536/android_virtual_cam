@@ -1,4 +1,4 @@
-package com.example.vcam;
+package io.github.hpjxiangbabang.vcam;
 
 import android.annotation.SuppressLint;
 import android.graphics.ImageFormat;
@@ -11,7 +11,6 @@ import android.media.MediaFormat;
 import android.util.Log;
 import android.view.Surface;
 
-import com.example.vcam.HookMain;
 
 import java.io.File;
 import java.io.IOException;
@@ -211,7 +210,9 @@ public class VideoToFrames implements Runnable {
                             }
                         }
                         if (outputImageFormat != null) {
-                            HookMain.data_buffer = getDataFromImage(image, COLOR_FormatNV21);
+                            Rect crop = image.getCropRect();
+                            byte[] nv21 = getDataFromImage(image, COLOR_FormatNV21);
+                            HookMain.data_buffer = HookMain.presentFrame(nv21, crop.width(), crop.height());
                         }
                         image.close();
                     }

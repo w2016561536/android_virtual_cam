@@ -23,19 +23,50 @@
             android:text="@string/Warning"
             android:textSize="20sp" />
 
-        <Button
-            android:id="@+id/button"
+        <TextView
+            android:id="@+id/log_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/click_to_go_to_repo" />
+            android:layout_marginTop="12dp"
+            android:text="@string/log_title"
+            android:textSize="20sp" />
 
-        <Button
-            android:id="@+id/button2"
+        <TextView
+            android:id="@+id/log_hint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            android:layout_marginBottom="10dp"
-            android:text="@string/gitee" />
+            android:text="@string/log_hint"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/log_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="#F3F3F3"
+            android:padding="8dp"
+            android:textIsSelectable="true"
+            android:textSize="15sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/log_refresh"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/log_refresh" />
+
+            <Button
+                android:id="@+id/log_clear"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/log_clear" />
+        </LinearLayout>
 
         <TableLayout
             android:layout_width="match_parent"
@@ -105,6 +136,19 @@
                     android:layout_height="match_parent"
                     android:minHeight="48dp"
                     android:text="@string/switch5" />
+            </TableRow>
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:minHeight="48dp">
+
+                <Switch
+                    android:id="@+id/switch6"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:minHeight="48dp"
+                    android:text="@string/switch6" />
             </TableRow>
 
         </TableLayout>

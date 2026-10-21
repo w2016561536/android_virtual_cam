@@ -2,6 +2,8 @@
 
 [简体中文](./README.md) | [繁體中文](./README_tc.md) | [English](./README_en.md)
 
+Maintained fork of [w2016561536/android_virtual_cam](https://github.com/w2016561536/android_virtual_cam). The package id is `io.github.hpjxiangbabang.vcam` (VCAM Next), so it does not replace the original module. See the Chinese README for the new in-app log and aspect-fit switch.
+
 A virtual camera based on Xposed
 
 ## DO NOT USE FOR ANY ILLEGAL PURPOSE, YOU NEED TO TAKE ALL RESPONSIBILITY AND CONSEQUENCE!

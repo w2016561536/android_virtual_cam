@@ -1,4 +1,4 @@
-package com.example.vcam;
+package io.github.hpjxiangbabang.vcam;
 
 import org.junit.Test;
 

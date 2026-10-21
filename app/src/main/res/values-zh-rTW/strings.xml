@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">VCAM</string>
+    <string name="app_name">VCAM Next</string>
     <string name="click_to_go_to_repo">前往倉庫</string>
     <string name="description">請前往線上倉庫來查看使用方法，程式更新和反應問題</string>
     <string name="Warning">請勿用於非法用途，所有後果自負！</string>
