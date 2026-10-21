@@ -17,6 +17,7 @@ public final class VcamConfig {
     public static final int FIT_INSIDE = 0;   // 等比放入，黑边
     public static final int FIT_FILL = 1;     // 等比铺满，裁边
     public static final int FIT_STRETCH = 2;  // 拉伸铺满
+    public static final int FIT_NONE = 3;     // 不适配，按视频原样输出
 
     public static final int CONFIG_VERSION = 1;
 

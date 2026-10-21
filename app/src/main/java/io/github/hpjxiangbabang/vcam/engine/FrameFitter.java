@@ -12,6 +12,7 @@ public final class FrameFitter {
     public static final int FIT_INSIDE = 0;
     public static final int FIT_FILL = 1;
     public static final int FIT_STRETCH = 2;
+    public static final int FIT_NONE = 3;
 
     private FrameFitter() {
     }

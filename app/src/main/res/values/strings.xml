@@ -21,4 +21,6 @@
     <string name="log_need_permission">Storage permission is required to read the log.</string>
     <string name="log_refresh">Refresh</string>
     <string name="log_clear">Clear</string>
+    <string name="config_saved">Configuration saved</string>
+    <string name="config_save_failed">Failed to save configuration</string>
 </resources>
