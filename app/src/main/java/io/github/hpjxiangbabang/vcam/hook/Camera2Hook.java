@@ -192,7 +192,9 @@ public final class Camera2Hook {
                         s.recreateVirtualSurface();
                         sCurrent = s;
                         log(pkg, "onOpened: " + s.device.getId());
-                        installCreateSessionHooks(pkg, s.device);
+                        if (sHookedDeviceClasses.add(param.args[0].getClass().getName())) {
+                            installCreateSessionHooks(pkg, param.args[0].getClass());
+                        }
                     }
                 });
 
@@ -217,18 +219,13 @@ public final class Camera2Hook {
                 });
     }
 
-    private static void installCreateSessionHooks(final String pkg, final CameraDevice device) {
-        String cls = device.getClass().getName();
-        if (!sHookedDeviceClasses.add(cls)) {
-            return;
-        }
-        final Class<?> deviceClass = device.getClass();
+    private static void installCreateSessionHooks(final String pkg, final Class<?> deviceClass) {
 
         XC_MethodHook listHook = new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 Cam2Session s = sCurrent;
-                if (s == null || !s.device.equals(device) || param.args == null || param.args[0] == null) {
+                if (s == null || !param.thisObject.equals(s.device) || param.args == null || param.args[0] == null) {
                     return;
                 }
                 param.args[0] = Arrays.asList(s.virtualSurface);
@@ -245,7 +242,7 @@ public final class Camera2Hook {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         Cam2Session s = sCurrent;
-                        if (s == null || !s.device.equals(device) || param.args[0] == null) {
+                        if (s == null || !param.thisObject.equals(s.device) || param.args[0] == null) {
                             return;
                         }
                         param.args[0] = Arrays.asList(new OutputConfiguration(s.virtualSurface));
@@ -263,7 +260,7 @@ public final class Camera2Hook {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
                             Cam2Session s = sCurrent;
-                            if (s == null || !s.device.equals(device) || param.args[1] == null) {
+                            if (s == null || !param.thisObject.equals(s.device) || param.args[1] == null) {
                                 return;
                             }
                             param.args[1] = Arrays.asList(s.virtualSurface);
@@ -279,7 +276,7 @@ public final class Camera2Hook {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
                             Cam2Session s = sCurrent;
-                            if (s == null || !s.device.equals(device) || param.args[1] == null) {
+                            if (s == null || !param.thisObject.equals(s.device) || param.args[1] == null) {
                                 return;
                             }
                             param.args[1] = Arrays.asList(new OutputConfiguration(s.virtualSurface));
@@ -294,7 +291,7 @@ public final class Camera2Hook {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
                             Cam2Session s = sCurrent;
-                            if (s == null || !s.device.equals(device) || param.args[0] == null) {
+                            if (s == null || !param.thisObject.equals(s.device) || param.args[0] == null) {
                                 return;
                             }
                             SessionConfiguration sc = (SessionConfiguration) param.args[0];

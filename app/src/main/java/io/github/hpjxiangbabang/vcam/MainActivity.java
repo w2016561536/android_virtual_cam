@@ -172,6 +172,13 @@ public class MainActivity extends Activity {
         if (disable_switch != null) {
             syncUi();
         }
+        // 起源服务：让目标 App 经 127.0.0.1 读视频，绕开作用域存储的 EACCES
+        try {
+            startForegroundService(new android.content.Intent(this,
+                    io.github.hpjxiangbabang.vcam.server.SourceServerService.class));
+        } catch (Throwable t) {
+            Toast.makeText(this, "源服务启动失败: " + t, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void syncUi() {

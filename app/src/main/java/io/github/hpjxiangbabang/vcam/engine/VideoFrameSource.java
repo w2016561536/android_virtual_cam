@@ -114,8 +114,9 @@ public final class VideoFrameSource {
         String mime = null;
         MediaFormat format = null;
         try {
-            File f = new File(mPath);
-            if (!f.exists() || !f.isFile() || f.length() < 1024) {
+            boolean isUrl = mPath.startsWith("http");
+            File f = isUrl ? null : new File(mPath);
+            if (!isUrl && (!f.exists() || !f.isFile() || f.length() < 1024)) {
                 report(new IllegalStateException("视频不存在或过小: " + mPath), "open");
                 return;
             }

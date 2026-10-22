@@ -86,17 +86,15 @@ public final class ConfigStore {
         return writeFile(f, config);
     }
 
-    /**
-     * 旧版 jpg 标记迁移：config.json 不存在时，把旧开关转成配置，
-     * 并把 legacy 视频路径作为默认源。写回一份 config.json 后旧文件就不再被读取。
+    /** 旧版 jpg 标记迁移：config.json 不存在时，把旧开关转成配置。
+     * 注意：disable.jpg 可能是历史遗留（升级前忘了关），一律忽略它，
+     * 避免升级后模块整体静默失效；需要停用走管理端总开关。
      */
     public static VcamConfig migrateLegacy(File dir) {
         VcamConfig c = new VcamConfig();
         File legacyVideo = new File(dir, "virtual.mp4");
-        c.defaultSource = legacyVideo.exists() ? legacyVideo.getAbsolutePath() : legacyVideo.getAbsolutePath();
-        if (flagExists(dir, "disable.jpg")) {
-            c.disabled = true;
-        }
+        c.defaultSource = legacyVideo.getAbsolutePath();
+        c.disabled = false;
         if (flagExists(dir, "no_toast.jpg")) {
             c.showToast = false;
         }
@@ -106,7 +104,7 @@ public final class ConfigStore {
         if (flagExists(dir, "private_dir.jpg")) {
             c.forcePrivateDir = true;
         }
-        c.fitMode = flagExists(dir, "fit_inside.jpg") ? VcamConfig.FIT_INSIDE : VcamConfig.FIT_INSIDE;
+        c.fitMode = flagExists(dir, "fit_inside.jpg") ? VcamConfig.FIT_INSIDE : VcamConfig.FIT_NONE;
         return c;
     }
 

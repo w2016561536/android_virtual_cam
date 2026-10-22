@@ -53,6 +53,11 @@ public final class Camera1Hook {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         Cam1Session s = sessionFor((Camera) param.thisObject, pkg);
+                        if (s.suppressNextTextureHook) {
+                            // setPreviewDisplay 内部调用 setPreviewTexture，防递归（旧版 is_hooked 旗标）
+                            s.suppressNextTextureHook = false;
+                            return;
+                        }
                         if (!HookMain.enabled(pkg) || !HookMain.sourceReady(pkg)) {
                             s.releasePlayers();
                             return;
@@ -69,6 +74,7 @@ public final class Camera1Hook {
                         s.origTexture = orig;
                         s.fakeTexture = newFakeTexture();
                         s.fakeSurface = new Surface(s.fakeTexture);
+                        s.origSurface = new Surface(orig);
                         param.args[0] = s.fakeTexture;
                         log(pkg, "已接管预览纹理");
                     }
@@ -87,6 +93,8 @@ public final class Camera1Hook {
                         s.holder = (SurfaceHolder) param.args[0];
                         s.holderFakeTexture = newFakeTexture();
                         s.holderFakeSurface = new Surface(s.holderFakeTexture);
+                        // 相机画面写进丢弃纹理；原 holder 面留给视频播放（旧版语义）
+                        s.suppressNextTextureHook = true;
                         s.camera.setPreviewTexture(s.holderFakeTexture);
                         param.setResult(null);
                         log(pkg, "已接管 SurfaceView 预览");
@@ -198,12 +206,6 @@ public final class Camera1Hook {
                 }
             });
             s.bufferSource.start();
-        } else if (!s.bufferSourceAlive()) {
-            s.bufferSource = null;
-            FrameBuffer buffer = new FrameBuffer();
-            s.buffer = buffer;
-            s.bufferSource = new VideoFrameSource(path, buffer);
-            s.bufferSource.start();
         }
     }
 
@@ -215,36 +217,39 @@ public final class Camera1Hook {
         if (s.bufferSource != null) {
             s.bufferSource.setTargetSize(s.previewW, s.previewH, HookMain.fitMode(pkg));
         }
-        log(pkg, "预览回调: " + s.previewW + "×" + s.previewH);
-        XposedHelpers.findAndHookMethod(callbackObj.getClass(), "onPreviewFrame",
-                byte[].class, Camera.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        if (!HookMain.enabled(pkg) || !HookMain.sourceReady(pkg)) {
-                            return;
-                        }
-                        Cam1Session st = sessionFor((Camera) param.args[1], pkg);
-                        if (st.buffer == null) {
-                            return;
-                        }
-                        FrameBuffer.Frame f = st.firstFrameDone
-                                ? st.buffer.awaitFresh(FRAME_WAIT_MS, FRAME_MAX_AGE_MS)
-                                : st.buffer.awaitFresh(FIRST_FRAME_WAIT_MS, -1);
-                        st.firstFrameDone = true;
-                        byte[] dst = (byte[]) param.args[0];
-                        if (f == null) {
-                            // 真的没有可用帧：保留上一份发过的内容，避免闪现实况
-                            if (st.lastSent != null && st.lastSent.length == dst.length) {
-                                System.arraycopy(st.lastSent, 0, dst, 0, dst.length);
+        // 微信每秒重注册回调：同类只挂一次 hook，尺寸变化静默更新，日志只在首次
+        if (s.hookedCallbacks.add(callbackObj.getClass().getName())) {
+            log(pkg, "预览回调接管: " + s.previewW + "×" + s.previewH);
+            XposedHelpers.findAndHookMethod(callbackObj.getClass(), "onPreviewFrame",
+                    byte[].class, Camera.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            if (!HookMain.enabled(pkg) || !HookMain.sourceReady(pkg)) {
+                                return;
                             }
-                            return;
+                            Cam1Session st = sessionFor((Camera) param.args[1], pkg);
+                            if (st.buffer == null) {
+                                return;
+                            }
+                            FrameBuffer.Frame f = st.firstFrameDone
+                                    ? st.buffer.awaitFresh(FRAME_WAIT_MS, FRAME_MAX_AGE_MS)
+                                    : st.buffer.awaitFresh(FIRST_FRAME_WAIT_MS, -1);
+                            st.firstFrameDone = true;
+                            byte[] dst = (byte[]) param.args[0];
+                            if (f == null) {
+                                // 真的没有可用帧：保留上一份发过的内容，避免闪现实况
+                                if (st.lastSent != null && st.lastSent.length == dst.length) {
+                                    System.arraycopy(st.lastSent, 0, dst, 0, dst.length);
+                                }
+                                return;
+                            }
+                            int n = Math.min(f.data.length, dst.length);
+                            System.arraycopy(f.data, 0, dst, 0, n);
+                            st.lastSent = new byte[n];
+                            System.arraycopy(f.data, 0, st.lastSent, 0, n);
                         }
-                        int n = Math.min(f.data.length, dst.length);
-                        System.arraycopy(f.data, 0, dst, 0, n);
-                        st.lastSent = new byte[n];
-                        System.arraycopy(f.data, 0, st.lastSent, 0, n);
-                    }
-                });
+                    });
+        }
     }
 
     private static void hookJpegOrYuv(final ClassLoader cl, Class callbackClass,
@@ -315,11 +320,13 @@ public final class Camera1Hook {
         final String pkg;
         Camera camera;
         SurfaceTexture origTexture;
-        SurfaceTexture fakeTexture;
+        Surface origSurface;         // 视频→目标 App 原纹理
+        SurfaceTexture fakeTexture;  // 相机→丢弃
         Surface fakeSurface;
         SurfaceHolder holder;
         SurfaceTexture holderFakeTexture;
         Surface holderFakeSurface;
+        boolean suppressNextTextureHook;
         MediaPlayer player;          // 渲染到 fakeSurface（目标 App 的纹理预览）
         MediaPlayer holderPlayer;    // 渲染到 holderFakeSurface（SurfaceView 预览）
         VideoFrameSource bufferSource;
@@ -329,6 +336,7 @@ public final class Camera1Hook {
         boolean firstFrameDone;
         byte[] lastSent;
         int lastPlayerPathHash;
+        final java.util.Set<String> hookedCallbacks = new java.util.HashSet<>();
 
         Cam1Session(String pkg) {
             this.pkg = pkg;
@@ -338,8 +346,11 @@ public final class Camera1Hook {
             int hash = path.hashCode();
             if (player == null || lastPlayerPathHash != hash) {
                 releasePlayers();
-                player = newPlayer(path, fakeSurface, mute);
-                holderPlayer = newPlayer(path, holderFakeSurface, mute);
+                // 关键：视频渲染到目标 App 原来的纹理面（旧版语义），不是假纹理
+                origSurface = origTexture != null ? new Surface(origTexture) : null;
+                player = newPlayer(path, origSurface, mute);
+                holderPlayer = newPlayer(path,
+                        holder != null ? holder.getSurface() : null, mute);
                 lastPlayerPathHash = hash;
             }
         }

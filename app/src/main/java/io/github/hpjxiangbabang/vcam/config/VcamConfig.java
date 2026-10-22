@@ -31,6 +31,9 @@ public final class VcamConfig {
     /** 默认源：视频文件绝对路径（P1 只有文件视频源） */
     public String defaultSource = "";
 
+    /** 本地源服务地址（模块进程 HTTP 服务），非空时 hook 端优先使用 */
+    public String serverUrl = "";
+
     /** 每目标 App 配置，key = 包名；缺失字段回落全局值 */
     public final LinkedHashMap<String, AppEntry> apps = new LinkedHashMap<>();
 
@@ -86,6 +89,7 @@ public final class VcamConfig {
             g.put("fit_mode", fitMode);
             root.put("global", g);
             root.put("default_source", defaultSource == null ? "" : defaultSource);
+            root.put("server_url", serverUrl == null ? "" : serverUrl);
             JSONObject a = new JSONObject();
             for (Map.Entry<String, AppEntry> en : apps.entrySet()) {
                 JSONObject o = new JSONObject();
@@ -123,6 +127,7 @@ public final class VcamConfig {
                 c.fitMode = g.optInt("fit_mode", FIT_INSIDE);
             }
             c.defaultSource = root.optString("default_source", "");
+            c.serverUrl = root.optString("server_url", "");
             JSONObject a = root.optJSONObject("apps");
             if (a != null) {
                 Iterator<String> keys = a.keys();

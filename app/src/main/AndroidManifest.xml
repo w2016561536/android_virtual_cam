@@ -26,6 +26,10 @@
             android:authorities="io.github.hpjxiangbabang.vcam.log"
             android:exported="true" />
 
+        <service
+            android:name=".server.SourceServerService"
+            android:exported="false" />
+
         <meta-data
             android:name="xposedmodule"
             android:value="true" />
@@ -39,5 +43,7 @@
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
 </manifest>

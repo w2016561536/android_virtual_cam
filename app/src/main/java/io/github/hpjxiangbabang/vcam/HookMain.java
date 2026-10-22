@@ -33,6 +33,7 @@ public class HookMain implements IXposedHookLoadPackage {
     private static volatile VcamConfig sConfig;
     private static volatile long sConfigAt;
     private static volatile String sSourceReady;   // 缓存"源文件可用"的判定结果
+    private static volatile String sSourceKey;     // pkg|path → 缓存键
     private static volatile long sSourceCheckAt;
     private static volatile Context sAppContext;
     private static volatile String sPkg;
@@ -94,14 +95,30 @@ public class HookMain implements IXposedHookLoadPackage {
     }
 
     public static boolean sourceReady(String pkg) {
+        String path = effectiveSource(pkg);
+        String key = pkg + "|" + path;
         long now = System.currentTimeMillis();
-        if (now - sSourceCheckAt > CONFIG_TTL_MS) {
+        if (!key.equals(sSourceKey) || now - sSourceCheckAt > CONFIG_TTL_MS) {
             sSourceCheckAt = now;
-            String p = config().sourceFor(pkg);
-            File f = resolveSourceFile(pkg, p);
-            sSourceReady = f != null ? f.getAbsolutePath() : null;
+            sSourceKey = key;
+            if (path.startsWith("http")) {
+                sSourceReady = path;
+            } else {
+                File f = resolveSourceFile(pkg, path);
+                sSourceReady = f != null ? f.getAbsolutePath() : null;
+            }
         }
         return sSourceReady != null;
+    }
+
+    /** HTTP 源服务优先（目标 App 不需要文件权限），文件路径兜底。 */
+    private static String effectiveSource(String pkg) {
+        VcamConfig c = config();
+        String url = c.serverUrl;
+        if (url != null && url.startsWith("http")) {
+            return url;
+        }
+        return c.sourceFor(pkg);
     }
 
     public static String sourcePath(String pkg) {
@@ -131,20 +148,36 @@ public class HookMain implements IXposedHookLoadPackage {
             return null;
         }
         File f = new File(path);
-        if (f.isFile() && f.length() > 1024) {
+        if (isReallyReadable(f) && f.length() > 1024) {
             return f;
         }
+        // 作用域存储下 exists() 可能为真但读不了（EACCES），必须真读探测
         Context ctx = sAppContext;
         if (ctx != null) {
             File base = ctx.getExternalFilesDir(null);
             if (base != null) {
                 File alt = new File(new File(base, "Camera1"), f.getName());
-                if (alt.isFile() && alt.length() > 1024) {
+                if (isReallyReadable(alt) && alt.length() > 1024) {
                     return alt;
                 }
             }
         }
-        return f.isFile() ? f : null;
+        return isReallyReadable(f) ? f : null;
+    }
+
+    /** 真读 1 字节确认可读（exists/canRead 在 FUSE 下会说谎）。 */
+    private static boolean isReallyReadable(File f) {
+        try {
+            java.io.FileInputStream in = new java.io.FileInputStream(f);
+            try {
+                in.read();
+                return true;
+            } finally {
+                in.close();
+            }
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     /** 旧版"强制私有目录"：目标 App 没有存储权限或开关打开时提示重定向。 */

@@ -23,4 +23,7 @@
     <string name="log_clear">Clear</string>
     <string name="config_saved">Configuration saved</string>
     <string name="config_save_failed">Failed to save configuration</string>
+    <string name="server_channel">Source server</string>
+    <string name="server_title">VCAM source server running</string>
+    <string name="server_text">Serving virtual camera video to hooked apps</string>
 </resources>
