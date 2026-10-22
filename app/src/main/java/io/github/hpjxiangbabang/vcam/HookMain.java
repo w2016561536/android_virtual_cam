@@ -9,6 +9,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 
 import java.io.File;
@@ -106,6 +107,33 @@ public class HookMain implements IXposedHookLoadPackage {
     }
 
     private static void tick() {
+        // 0) 源计算：在 watchdog 线程做（可能触发懒编码，秒级阻塞也不能发生在目标 App 线程）
+        try {
+            String name = sourceName(sPkg);
+            String key = sPkg + "|" + name;
+            long now = System.currentTimeMillis();
+            if (!key.equals(sSourceKey) || now - sSourceCheckAt > CONFIG_TTL_MS) {
+                sSourceCheckAt = now;
+                sSourceKey = key;
+                SourceHandle nh = openSource(sPkg, name);
+                if (nh == null) {
+                    if (!"unavailable".equals(sLastSourceSig)) {
+                        sLastSourceSig = "unavailable";
+                        log(sPkg, "watchdog: 源不可用");
+                    }
+                } else {
+                    String sig = sPkg + "|" + name + "|" + nh.display;
+                    boolean first = sLastSourceSig == null;
+                    sLastSourceSig = sig;
+                    if (!first) {
+                        log(sPkg, "watchdog 检测到源变更: " + sig);
+                        fireSourceChanged(nh);
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            log(sPkg, "watchdog 源计算异常: " + t);
+        }
         // 1) 控制状态（暂停/声音）经 Provider 轮询
         Context ctx = sAppContext;
         if (ctx != null) {
@@ -117,50 +145,62 @@ public class HookMain implements IXposedHookLoadPackage {
                     if (p != sPaused || v != sVideoSound) {
                         sPaused = p;
                         sVideoSound = v;
-                        for (RuntimeListener l : sListeners) {
-                            try {
-                                l.onControlChanged(p, v);
-                            } catch (Throwable ignored) {
-                            }
-                        }
+                        fireControl(p, v);
                     }
                 }
             } catch (Throwable ignored) {
             }
         }
-        // 2) 源签名变更（热切换）
+    }
+
+    /** 监听回调统一投递到目标 App 主线程执行（MediaPlayer 等需要 Looper）。 */
+    private static void fireSourceChanged(final SourceHandle h) {
         try {
-            if (sourceReady(sPkg)) {
-                SourceHandle h = sSourceHandle;
-                String sig = sPkg + "|" + sourceName(sPkg) + "|" + (h != null ? h.display : "null");
-                if (!sig.equals(sLastSourceSig)) {
-                    boolean first = sLastSourceSig == null;
-                    sLastSourceSig = sig;
-                    log(sPkg, first ? "watchdog 首次记录源: " + sig : "watchdog 检测到源变更: " + sig);
-                    if (!first && h != null) {
-                        for (RuntimeListener l : sListeners) {
-                            try {
-                                l.onSourceChanged(h);
-                            } catch (Throwable t) {
-                                log(sPkg, "onSourceChanged 异常: " + t);
-                            }
-                        }
+            mainHandler().post(() -> {
+                for (RuntimeListener l : sListeners) {
+                    try {
+                        l.onSourceChanged(h);
+                    } catch (Throwable t) {
+                        log(sPkg, "onSourceChanged 异常: " + t);
                     }
                 }
-            } else {
-                if (!"unavailable".equals(sLastSourceSig)) {
-                    sLastSourceSig = "unavailable";
-                    log(sPkg, "watchdog: 源不可用");
+            });
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void fireControl(final boolean p, final boolean v) {
+        try {
+            mainHandler().post(() -> {
+                for (RuntimeListener l : sListeners) {
+                    try {
+                        l.onControlChanged(p, v);
+                    } catch (Throwable t) {
+                        log(sPkg, "onControlChanged 异常: " + t);
+                    }
+                }
+            });
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static volatile Handler sMainHandler;
+
+    private static Handler mainHandler() {
+        if (sMainHandler == null) {
+            synchronized (HookMain.class) {
+                if (sMainHandler == null) {
+                    sMainHandler = new Handler(Looper.getMainLooper());
                 }
             }
-        } catch (Throwable t) {
-            log(sPkg, "watchdog tick 异常: " + t);
         }
+        return sMainHandler;
     }
 
     private static volatile VcamConfig sConfig;
     private static volatile long sConfigAt;
-    private static volatile SourceHandle sSourceHandle;  // 当前源句柄（path 或 provider FD）
+    private static volatile SourceHandle sSourceHandle;
+    private static volatile long sProviderBrokenUntil = 0L;  // 当前源句柄（path 或 provider FD）
     private static volatile String sSourceKey;     // pkg|name → 缓存键
     private static volatile long sSourceCheckAt;
     private static volatile Context sAppContext;
@@ -276,15 +316,9 @@ public class HookMain implements IXposedHookLoadPackage {
         return config().enabledFor(pkg);
     }
 
+    /** hook 调用方只读缓存，绝不做 IO/编码（watchdog 500ms 轮询负责计算）。
+     * 源未就绪时返回 false,由 onSourceChanged 事件补上。 */
     public static boolean sourceReady(String pkg) {
-        String name = sourceName(pkg);
-        String key = pkg + "|" + name;
-        long now = System.currentTimeMillis();
-        if (!key.equals(sSourceKey) || now - sSourceCheckAt > CONFIG_TTL_MS) {
-            sSourceCheckAt = now;
-            sSourceKey = key;
-            sSourceHandle = openSource(pkg, name);
-        }
         return sSourceHandle != null;
     }
 
@@ -314,7 +348,8 @@ public class HookMain implements IXposedHookLoadPackage {
      */
     private static SourceHandle openSource(String pkg, String name) {
         Context ctx = sAppContext;
-        if (ctx != null) {
+        long now = System.currentTimeMillis();
+        if (ctx != null && now >= sProviderBrokenUntil) {
             try {
                 Uri uri = Uri.parse(MediaProvider.BASE_URI + "/v/" + android.net.Uri.encode(name));
                 ParcelFileDescriptor pfd = ctx.getContentResolver().openFile(uri, "r", null);
@@ -323,7 +358,9 @@ public class HookMain implements IXposedHookLoadPackage {
                 }
                 log(pkg, "provider 返回空 FD: " + name);
             } catch (Throwable t) {
-                log(pkg, "provider 打开源失败[" + name + "]: " + t);
+                // provider 失败退避 30s：避免 FD/http 句柄来回横跳导致会话反复重建
+                sProviderBrokenUntil = now + 30000;
+                log(pkg, "provider 打开源失败[" + name + "]，退避30s: " + t);
             }
         }
         String path = effectiveSource(pkg);

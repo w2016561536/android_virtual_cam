@@ -174,14 +174,14 @@ public class FloatingControlService extends Service {
         return new LinearLayout.LayoutParams(iconSize(), iconSize());
     }
 
-    /** 收起态：单个相机小图标，点击展开。 */
+    /** 收起态：单个相机小图标，点击展开，按住可拖动。 */
     private View buildCollapsed() {
         ImageButton icon = new ImageButton(this);
         icon.setImageResource(android.R.drawable.ic_menu_camera);
         icon.setPadding(iconPad(), iconPad(), iconPad(), iconPad());
         icon.setBackgroundColor(0xAA202020);
-        icon.setOnClickListener(v -> swap(true));
-        attachDrag(icon);
+        // 点击与拖动统一在 touch 里处理（onTouch 返回 true 会吞掉 click）
+        attachDrag(icon, () -> swap(true));
         return icon;
     }
 
@@ -243,45 +243,8 @@ public class FloatingControlService extends Service {
         next.setOnClickListener(v -> cycleSource(1));
         bar.addView(next, iconParams());
 
-        attachDrag(bar);
+        attachDrag(bar, null);
         return bar;
-    }
-
-    /** 按住非按钮区域（容器本身）拖动。 */
-    private void attachDrag(View v) {
-        v.setOnTouchListener(new View.OnTouchListener() {
-            float downX, downY;
-            int startX, startY;
-
-            @Override
-            public boolean onTouch(View view, MotionEvent event) {
-                if (mParams == null) {
-                    return false;
-                }
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        downX = event.getRawX();
-                        downY = event.getRawY();
-                        startX = mParams.x;
-                        startY = mParams.y;
-                        return true;
-                    case MotionEvent.ACTION_MOVE:
-                        float dx = event.getRawX() - downX;
-                        float dy = event.getRawY() - downY;
-                        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-                            mParams.x = startX + (int) dx;
-                            mParams.y = startY + (int) dy;
-                            try {
-                                mWm.updateViewLayout(mCurrent, mParams);
-                            } catch (Throwable ignored) {
-                            }
-                        }
-                        return true;
-                    default:
-                        return false;
-                }
-            }
-        });
     }
 
     /** 与主界面控制条一致的"当前源"循环切换（全局：默认源+所有绑定）。 */

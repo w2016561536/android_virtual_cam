@@ -518,7 +518,15 @@ public final class Camera2Hook {
                         }
                     }
                 });
-                mp.prepare();
+                mp.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+                    @Override
+                    public boolean onError(MediaPlayer mediaPlayer, int what, int extra) {
+                        log(pkg, "\u64ad\u653e\u5668\u9519\u8bef what=" + what + " extra=" + extra);
+                        return true;
+                    }
+                });
+                mp.prepareAsync();   // 非阻塞：绝不在目标 App 线程上 prepare
+
             } catch (Throwable t) {
                 log(pkg, "preview 播放器失败(FD):" + t);
                 try {
@@ -551,7 +559,15 @@ public final class Camera2Hook {
                         }
                     }
                 });
-                mp.prepare();
+                mp.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+                    @Override
+                    public boolean onError(MediaPlayer mediaPlayer, int what, int extra) {
+                        log(pkg, "\u64ad\u653e\u5668\u9519\u8bef what=" + what + " extra=" + extra);
+                        return true;
+                    }
+                });
+                mp.prepareAsync();   // 非阻塞：绝不在目标 App 线程上 prepare
+
             } catch (Throwable t) {
                 log(pkg, "preview 播放器失败:" + t);
                 try {

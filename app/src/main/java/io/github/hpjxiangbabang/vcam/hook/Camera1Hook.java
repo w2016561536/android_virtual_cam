@@ -268,15 +268,16 @@ public final class Camera1Hook {
             log(pkg, "预览回调接管: " + s.previewW + "×" + s.previewH);
             XposedHelpers.findAndHookMethod(callbackObj.getClass(), "onPreviewFrame",
                     byte[].class, Camera.class, new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            if (!HookMain.enabled(pkg) || !HookMain.sourceReady(pkg)) {
-                                return;
-                            }
-                            Cam1Session st = sessionFor((Camera) param.args[1], pkg);
-                            if (st.buffer == null) {
-                                return;
-                            }
+@Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if (!HookMain.enabled(pkg)) {
+                            return;
+                        }
+                        Cam1Session st = sessionFor((Camera) param.args[1], pkg);
+                        if (st.buffer == null) {
+                            // 源尚未接管（watchdog 计算中）：放行真相机帧，接管后自动切换
+                            return;
+                        }
                             FrameBuffer.Frame f = st.firstFrameDone
                                     ? st.buffer.awaitFresh(FRAME_WAIT_MS, FRAME_MAX_AGE_MS)
                                     : st.buffer.awaitFresh(FIRST_FRAME_WAIT_MS, -1);
@@ -437,7 +438,15 @@ public final class Camera1Hook {
                         }
                     }
                 });
-                mp.prepare();
+                mp.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+                    @Override
+                    public boolean onError(MediaPlayer mediaPlayer, int what, int extra) {
+                        log(pkg, "\u64ad\u653e\u5668\u9519\u8bef what=" + what + " extra=" + extra);
+                        return true;
+                    }
+                });
+                mp.prepareAsync();   // 非阻塞：绝不在目标 App 线程上 prepare
+
             } catch (Throwable t) {
                 log(pkg, "播放器创建失败(FD):" + t);
                 try {
@@ -470,7 +479,15 @@ public final class Camera1Hook {
                         }
                     }
                 });
-                mp.prepare();
+                mp.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+                    @Override
+                    public boolean onError(MediaPlayer mediaPlayer, int what, int extra) {
+                        log(pkg, "\u64ad\u653e\u5668\u9519\u8bef what=" + what + " extra=" + extra);
+                        return true;
+                    }
+                });
+                mp.prepareAsync();   // 非阻塞：绝不在目标 App 线程上 prepare
+
             } catch (Throwable t) {
                 log(pkg, "播放器创建失败:" + t);
                 try {
