@@ -110,29 +110,30 @@ public class HookMain implements IXposedHookLoadPackage {
         // 0) 源计算：在 watchdog 线程做（可能触发懒编码，秒级阻塞也不能发生在目标 App 线程）
         try {
             String name = sourceName(sPkg);
-            String key = sPkg + "|" + name;
+            VcamConfig.SourceEntry se = config().resolveSource(name);
+            String pathSig = se != null ? se.path : "";
+            String key = sPkg + "|" + name + "|" + pathSig;
             long now = System.currentTimeMillis();
-            if (!key.equals(sSourceKey) || now - sSourceCheckAt > CONFIG_TTL_MS) {
+            SourceHandle h = sSourceHandle;
+            if (!key.equals(sSourceKey) || now - sSourceCheckAt > CONFIG_TTL_MS || h == null) {
                 sSourceCheckAt = now;
                 sSourceKey = key;
-                SourceHandle nh = openSource(sPkg, name);
-                if (nh == null) {
-                    if (!"unavailable".equals(sLastSourceSig)) {
-                        sLastSourceSig = "unavailable";
-                        log(sPkg, "watchdog: 源不可用");
-                    }
-                } else {
-                    String sig = sPkg + "|" + name + "|" + nh.display;
-                    boolean first = sLastSourceSig == null;
+                h = openSource(sPkg, name);
+            }
+            if (h != null) {
+                sSourceHandle = h;
+                String sig = sPkg + "|" + name;   // 按源名判定：通道切换不触发重建
+                if (!sig.equals(sLastSourceSig)) {
                     sLastSourceSig = sig;
-                    if (!first) {
-                        log(sPkg, "watchdog 检测到源变更: " + sig);
-                        fireSourceChanged(nh);
-                    }
+                    logVerbose(sPkg, "watchdog 源切换: " + name + " (" + h.display + ")");
+                    fireSourceChanged(h);
                 }
+            } else if (!"unavailable".equals(sLastSourceSig)) {
+                sLastSourceSig = "unavailable";
+                logVerbose(sPkg, "watchdog: 源不可用");
             }
         } catch (Throwable t) {
-            log(sPkg, "watchdog 源计算异常: " + t);
+            logVerbose(sPkg, "watchdog 源计算异常: " + t);
         }
         // 1) 控制状态（暂停/声音）经 Provider 轮询
         Context ctx = sAppContext;
@@ -540,6 +541,11 @@ public class HookMain implements IXposedHookLoadPackage {
         }
     }
 
+    /** 诊断日志：只进 logcat 与文件，不弹 Toast（气泡反馈已由悬浮条承担）。 */
+    public static void logVerbose(String pkg, String msg) {
+        log(pkg, msg);
+    }
+
     public static void log(String pkg, String msg) {
         try {
             XposedBridge.log("【VCAM】[" + pkg + "] " + msg);
@@ -548,12 +554,6 @@ public class HookMain implements IXposedHookLoadPackage {
         Context ctx = sAppContext;
         if (ctx != null) {
             AppLog.appendFromHook(ctx, pkg + "\n" + msg);
-            if (showToast()) {
-                try {
-                    android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show();
-                } catch (Throwable ignored) {
-                }
-            }
         }
     }
 }
