@@ -44,8 +44,8 @@ public class MainActivity extends Activity {
     private Switch fit_inside_switch;
     private TextView log_view;
     private TextView currentSourceView;
-    private android.widget.Button btnSound;
-    private android.widget.Button btnPause;
+    private android.widget.ImageButton btnSound;
+    private android.widget.ImageButton btnPause;
     private LinearLayout settingsBox;
     private VcamConfig config;
 
@@ -95,7 +95,7 @@ public class MainActivity extends Activity {
         // P2.1 源库（SAF 文件选择器，MIME 预设过滤）
         findViewById(R.id.btn_add_video).setOnClickListener(v -> pickSource("video"));
         findViewById(R.id.btn_add_image).setOnClickListener(v -> pickSource("image"));
-        // 控制条（播放器形式：声音/上一个/暂停/下一个/列表）
+        // 控制条（播放器形式：声音/上一个/暂停/下一个/列表，文字标签保证渲染）
         btnSound = findViewById(R.id.btn_sound);
         btnPause = findViewById(R.id.btn_pause);
         currentSourceView = findViewById(R.id.current_source);
@@ -239,23 +239,35 @@ public class MainActivity extends Activity {
         refreshControlIcons();
     }
 
-    /** 控制条图标与"当前源"标签。 */
+    /** 控制条图标与"当前源"标签（系统内置图标，保证渲染）。 */
     private void refreshControlIcons() {
         if (btnSound == null) {
             return;
         }
-        btnSound.setText(ControlState.videoSound ? "🔊" : "🎤");
-        btnSound.setContentDescription(ControlState.videoSound ? "视频声音" : "麦克风");
-        btnPause.setText(ControlState.paused ? "▶" : "⏸");
+        btnSound.setImageResource(ControlState.videoSound
+                ? android.R.drawable.ic_btn_speak_now
+                : android.R.drawable.ic_lock_silent_mode);
+        btnPause.setImageResource(ControlState.paused
+                ? android.R.drawable.ic_media_play
+                : android.R.drawable.ic_media_pause);
         if (currentSourceView != null) {
             String cur = config.defaultSourceName != null && config.defaultSourceName.length() > 0
                     ? config.defaultSourceName : "virtual.mp4(传统)";
-            String state = ControlState.paused ? " ⏸已暂停" : "";
+            String state = ControlState.paused ? "（已暂停）" : "";
             currentSourceView.setText("当前源: " + cur + state);
         }
     }
 
-    /** 上一个/下一个源：在 [传统 virtual.mp4] + 源库 顺序上循环，写默认源并热切换。 */
+    /** 控制条切换 = 全局切换：改默认源，并让所有已绑定应用跟着切（"当前视频"语义）。 */
+    private void applyGlobalSource(String name) {
+        config.defaultSourceName = name.equals("virtual.mp4") ? "" : name;
+        for (VcamConfig.AppEntry e : config.apps.values()) {
+            e.source = config.defaultSourceName;  // null = 跟随默认（即传统 virtual.mp4）
+        }
+        save();
+    }
+
+    /** 上一个/下一个源：在 [传统 virtual.mp4] + 源库 顺序上循环。 */
     private void cycleSource(int dir) {
         java.util.List<String> order = new java.util.ArrayList<>();
         order.add("virtual.mp4");
@@ -272,8 +284,7 @@ public class MainActivity extends Activity {
         }
         int ni = ((idx + dir) % order.size() + order.size()) % order.size();
         String name = order.get(ni);
-        config.defaultSourceName = name.equals("virtual.mp4") ? "" : name;
-        save();
+        applyGlobalSource(name);
         Toast.makeText(this, "已切换: " + name, Toast.LENGTH_SHORT).show();
     }
 
@@ -489,22 +500,21 @@ public class MainActivity extends Activity {
                 .show();
     }
 
-    /** 全局默认源开关：应用绑定 > 默认源选择 > 传统 virtual.mp4。 */
+    /** 全局默认源（列表选择）：应用绑定 > 默认源选择 > 传统 virtual.mp4。
+     * 控制条语义下，列表选择同样全局生效（所有绑定一起切）。 */
     private void defaultSourceDialog() {
         java.util.List<String> options = new java.util.ArrayList<>();
         options.add("传统 virtual.mp4");
         options.addAll(config.sources.keySet());
         final String[] items = options.toArray(new String[0]);
-        int checked = 0;
-        if (config.defaultSourceName != null && config.defaultSourceName.length() > 0) {
-            int idx = options.indexOf(config.defaultSourceName);
-            checked = Math.max(0, idx);
-        }
+        String cur = config.defaultSourceName != null && config.defaultSourceName.length() > 0
+                ? config.defaultSourceName : "传统 virtual.mp4";
+        int checked = Math.max(0, options.indexOf(cur));
         new AlertDialog.Builder(this)
-                .setTitle("选择默认源")
+                .setTitle("选择当前源（全局切换）")
                 .setSingleChoiceItems(items, checked, (d, which) -> {
-                    config.defaultSourceName = which == 0 ? "" : items[which];
-                    save();
+                    String name = which == 0 ? "virtual.mp4" : items[which];
+                    applyGlobalSource(name);
                     d.dismiss();
                 })
                 .setNegativeButton(R.string.negative, null)

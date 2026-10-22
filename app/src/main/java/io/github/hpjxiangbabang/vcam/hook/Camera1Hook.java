@@ -59,10 +59,11 @@ public final class Camera1Hook {
                             s.suppressNextTextureHook = false;
                             return;
                         }
-                        if (!HookMain.enabled(pkg) || !HookMain.sourceReady(pkg)) {
-                            s.releasePlayers();
+                        if (!HookMain.enabled(pkg)) {
                             return;
                         }
+                        // 关键：即使源尚未就绪（懒编码中）也必须接管并记录 origTexture，
+                        // 否则 watchdog 热切换后没有渲染面（黑屏）
                         SurfaceTexture orig = (SurfaceTexture) param.args[0];
                         if (orig == null || orig == s.fakeTexture) {
                             return;
@@ -87,7 +88,7 @@ public final class Camera1Hook {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                         Cam1Session s = sessionFor((Camera) param.thisObject, pkg);
-                        if (!HookMain.enabled(pkg) || !HookMain.sourceReady(pkg)) {
+                        if (!HookMain.enabled(pkg)) {
                             return;
                         }
                         s.camera = (Camera) param.thisObject;
@@ -108,8 +109,13 @@ public final class Camera1Hook {
 @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 Cam1Session s = sessionFor((Camera) param.thisObject, pkg);
-                if (!HookMain.enabled(pkg) || !HookMain.sourceReady(pkg)) {
-                    log(pkg, "startPreview 时源不可用，放行真相机");
+                if (!HookMain.enabled(pkg)) {
+                    return;
+                }
+                if (!HookMain.sourceReady(pkg)) {
+                    // 源未就绪（懒编码中）：相机已被接管（画面暂黑/冻结），
+                    // watchdog 检测到源可用后会经 onSourceChanged 补上渲染
+                    log(pkg, "startPreview: 源尚未就绪，等待热切换接管");
                     return;
                 }
                 startSession(s, pkg);
@@ -472,6 +478,7 @@ public final class Camera1Hook {
 
         /** 热切换：换源重建（暂停态则只记录，等恢复时重建）。 */
         void switchSource(HookMain.SourceHandle h, boolean videoSound) {
+            log(pkg, "热切换重建: " + h.display);
             this.handle = h;
             if (HookMain.isPaused()) {
                 releasePlayers();

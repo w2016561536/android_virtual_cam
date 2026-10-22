@@ -23,40 +23,40 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <Button
+            <ImageButton
                 android:id="@+id/btn_sound"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textSize="22sp" />
+                android:src="@android:drawable/ic_btn_speak_now" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/btn_prev"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textSize="22sp" />
+                android:src="@android:drawable/ic_media_previous" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/btn_pause"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textSize="22sp" />
+                android:src="@android:drawable/ic_media_pause" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/btn_next"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textSize="22sp" />
+                android:src="@android:drawable/ic_media_next" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/btn_list"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textSize="22sp" />
+                android:src="@android:drawable/ic_menu_sort_by_size" />
         </LinearLayout>
 
         <!-- 源库与应用绑定 -->

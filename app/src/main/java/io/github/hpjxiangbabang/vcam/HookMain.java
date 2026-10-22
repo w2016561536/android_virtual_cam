@@ -103,21 +103,32 @@ public class HookMain implements IXposedHookLoadPackage {
             }
         }
         // 2) 源签名变更（热切换）
-        if (sourceReady(sPkg)) {
-            SourceHandle h = sSourceHandle;
-            String sig = sPkg + "|" + sourceName(sPkg) + "|" + (h != null ? h.display : "null");
-            if (!sig.equals(sLastSourceSig)) {
-                boolean first = sLastSourceSig == null;
-                sLastSourceSig = sig;
-                if (!first && h != null) {
-                    for (RuntimeListener l : sListeners) {
-                        try {
-                            l.onSourceChanged(h);
-                        } catch (Throwable ignored) {
+        try {
+            if (sourceReady(sPkg)) {
+                SourceHandle h = sSourceHandle;
+                String sig = sPkg + "|" + sourceName(sPkg) + "|" + (h != null ? h.display : "null");
+                if (!sig.equals(sLastSourceSig)) {
+                    boolean first = sLastSourceSig == null;
+                    sLastSourceSig = sig;
+                    log(sPkg, first ? "watchdog 首次记录源: " + sig : "watchdog 检测到源变更: " + sig);
+                    if (!first && h != null) {
+                        for (RuntimeListener l : sListeners) {
+                            try {
+                                l.onSourceChanged(h);
+                            } catch (Throwable t) {
+                                log(sPkg, "onSourceChanged 异常: " + t);
+                            }
                         }
                     }
                 }
+            } else {
+                if (!"unavailable".equals(sLastSourceSig)) {
+                    sLastSourceSig = "unavailable";
+                    log(sPkg, "watchdog: 源不可用");
+                }
             }
+        } catch (Throwable t) {
+            log(sPkg, "watchdog tick 异常: " + t);
         }
     }
 

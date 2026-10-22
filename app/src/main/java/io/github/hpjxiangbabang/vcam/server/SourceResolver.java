@@ -41,11 +41,11 @@ public final class SourceResolver {
 
     /** 统一出口：打开源为只读 FD。找不到返回 null。 */
     public static ParcelFileDescriptor openFd(Context context, String name) {
-        VcamConfig.SourceEntry se = lookup(context, name);
         ParcelFileDescriptor pfd = null;
+        VcamConfig.SourceEntry se = lookup(context, name);
         if (se != null) {
             if ("image".equals(se.type)) {
-                String cache = ensureImageCache(context, se);
+                String cache = ensureImageCache(context, name);
                 if (cache != null) {
                     pfd = openFile(new File(cache));
                 }
@@ -99,59 +99,58 @@ public final class SourceResolver {
         }
     }
 
-    /** 确保 image 源的循环 mp4 缓存存在（懒生成，加锁防并发重复编码），返回缓存路径或 null。 */
-    public static String ensureImageCache(Context context, VcamConfig.SourceEntry se) {
+    /** 确保 image 源的循环 mp4 缓存存在。
+     * 锁内重新加载最新配置（防多请求竞态丢失 cache 字段导致反复重编码）。
+     * 返回缓存路径或 null。 */
+    public static String ensureImageCache(Context context, String name) {
         synchronized (SourceResolver.class) {
-            return ensureImageCacheLocked(context, se);
+            try {
+                VcamConfig c = ConfigStore.loadForManager();
+                VcamConfig.SourceEntry se = c.resolveSource(name);
+                if (se == null || !"image".equals(se.type)) {
+                    return null;
+                }
+                if (se.cache != null && new File(se.cache).isFile()) {
+                    return se.cache;
+                }
+                String cache = generateImageCache(context, se.path);
+                if (cache != null) {
+                    se.cache = cache;
+                    ConfigStore.saveForManager(c);
+                }
+                return cache;
+            } catch (Throwable t) {
+                return null;
+            }
         }
     }
 
-    private static String ensureImageCacheLocked(Context context, VcamConfig.SourceEntry se) {
-        if (se.cache != null && new File(se.cache).isFile()) {
-            return se.cache;
-        }
-        try {
-            BitmapFactory.Options o = new BitmapFactory.Options();
-            o.inJustDecodeBounds = true;
-            decodeBounds(context, se.path, o);
-            if (o.outWidth <= 0) {
-                return null;
-            }
-            BitmapFactory.Options b = new BitmapFactory.Options();
-            int s = 1;
-            while (Math.max(o.outWidth, o.outHeight) / (s * 2) >= 1280) {
-                s *= 2;
-            }
-            b.inSampleSize = s;
-            Bitmap bmp = decode(context, se.path, b);
-            if (bmp == null) {
-                return null;
-            }
-            File base = context.getExternalFilesDir(null);
-            File dir = new File(new File(base, "Camera1"), "imgcache");
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-            File cache = new File(dir, "img_" + Integer.toHexString(se.path.hashCode()) + ".mp4");
-            File out = ImageVideoEncoder.encode(bmp, cache);
-            bmp.recycle();
-            if (out != null) {
-                se.cache = out.getAbsolutePath();
-                // 写回配置，避免每次请求重新编码
-                VcamConfig c = ConfigStore.loadForManager();
-                for (java.util.Map.Entry<String, VcamConfig.SourceEntry> en : c.sources.entrySet()) {
-                    if (en.getValue() == se) {
-                        c.sources.put(en.getKey(), se);
-                        break;
-                    }
-                }
-                ConfigStore.saveForManager(c);
-                return se.cache;
-            }
-            return null;
-        } catch (Throwable t) {
+    private static String generateImageCache(Context context, String imagePath) {
+        BitmapFactory.Options o = new BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+        decodeBounds(context, imagePath, o);
+        if (o.outWidth <= 0) {
             return null;
         }
+        BitmapFactory.Options b = new BitmapFactory.Options();
+        int s = 1;
+        while (Math.max(o.outWidth, o.outHeight) / (s * 2) >= 1280) {
+            s *= 2;
+        }
+        b.inSampleSize = s;
+        Bitmap bmp = decode(context, imagePath, b);
+        if (bmp == null) {
+            return null;
+        }
+        File base = context.getExternalFilesDir(null);
+        File dir = new File(new File(base, "Camera1"), "imgcache");
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        File cache = new File(dir, "img_" + Integer.toHexString(imagePath.hashCode()) + ".mp4");
+        File out = ImageVideoEncoder.encode(bmp, cache);
+        bmp.recycle();
+        return out != null ? out.getAbsolutePath() : null;
     }
 
     private static void decodeBounds(Context context, String path, BitmapFactory.Options o) {
