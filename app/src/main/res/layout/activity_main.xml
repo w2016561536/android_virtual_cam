@@ -59,6 +59,18 @@
                 android:src="@android:drawable/ic_menu_sort_by_size" />
         </LinearLayout>
 
+        <!-- 悬浮窗权限提醒横幅 -->
+        <TextView
+            android:id="@+id/float_perm_banner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="#FFB300"
+            android:padding="8dp"
+            android:text="悬浮控制条未启用：点此授权（通话中用悬浮条切换视频/暂停/声音）"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
         <!-- 源库与应用绑定 -->
         <TextView
             android:layout_width="match_parent"

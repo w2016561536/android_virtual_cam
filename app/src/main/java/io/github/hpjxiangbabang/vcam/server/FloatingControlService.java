@@ -36,6 +36,14 @@ public class FloatingControlService extends Service {
 
     public static void onCameraState(boolean active) {
         FloatingControlService s = sInstance;
+        if (s == null && active) {
+            // 进程被杀后静态状态丢失：显式拉起服务，onCreate 会按 cameraActive 恢复悬浮条
+            try {
+                startService(new Intent(this, FloatingControlService.class));
+            } catch (Throwable ignored) {
+            }
+            return;
+        }
         if (s != null) {
             Handler h = new Handler(Looper.getMainLooper());
             h.post(() -> {
@@ -49,6 +57,10 @@ public class FloatingControlService extends Service {
                 }
             });
         }
+    }
+
+    public static boolean isRunning() {
+        return sInstance != null;
     }
 
     @Override

@@ -67,6 +67,22 @@ public class MainActivity extends Activity {
         super.onResume();
         loadConfig();
         show_log();
+        updateFloatBanner();
+    }
+
+    /** 悬浮窗权限提醒：未授权时显示横幅。 */
+    private void updateFloatBanner() {
+        TextView banner = findViewById(R.id.float_perm_banner);
+        if (banner == null) {
+            return;
+        }
+        boolean ok;
+        try {
+            ok = android.provider.Settings.canDrawOverlays(this);
+        } catch (Throwable t) {
+            ok = true;
+        }
+        banner.setVisibility(ok ? View.GONE : View.VISIBLE);
     }
 
     @Override
@@ -99,6 +115,18 @@ public class MainActivity extends Activity {
         btnSound = findViewById(R.id.btn_sound);
         btnPause = findViewById(R.id.btn_pause);
         currentSourceView = findViewById(R.id.current_source);
+        final TextView floatBanner = findViewById(R.id.float_perm_banner);
+        if (floatBanner != null) {
+            floatBanner.setOnClickListener(v -> {
+                try {
+                    startActivity(new android.content.Intent(
+                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:" + getPackageName())));
+                } catch (Throwable t) {
+                    Toast.makeText(this, "请到系统设置授予「显示在应用上层」权限", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
         findViewById(R.id.btn_sound).setOnClickListener(v -> {
             ControlState.videoSound = !ControlState.videoSound;
             refreshControlIcons();

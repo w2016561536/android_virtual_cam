@@ -69,10 +69,12 @@ public class MediaProvider extends ContentProvider {
             boolean active = arg != null && arg.equals("1");
             ControlState.cameraActive = active;
             try {
-                android.util.Log.i("VCAM-FLOAT", "cameraState -> " + active);
+                android.util.Log.i("VCAM-FLOAT", "cameraState -> " + active
+                        + " running=" + io.github.hpjxiangbabang.vcam.server.FloatingControlService.isRunning());
             } catch (Throwable ignored) {
             }
-            io.github.hpjxiangbabang.vcam.server.FloatingControlService.onCameraState(active);
+            io.github.hpjxiangbabang.vcam.server.FloatingControlService
+                    .onCameraState(getContext(), active);
             return new Bundle();
         }
         return null;
