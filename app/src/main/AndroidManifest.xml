@@ -36,6 +36,10 @@
             android:name=".server.SourceServerService"
             android:exported="false" />
 
+        <service
+            android:name=".server.FloatingControlService"
+            android:exported="false" />
+
         <meta-data
             android:name="xposedmodule"
             android:value="true" />
@@ -51,6 +55,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
     <queries>
         <intent>

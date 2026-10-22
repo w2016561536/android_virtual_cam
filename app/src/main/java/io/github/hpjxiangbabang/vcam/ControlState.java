@@ -12,6 +12,9 @@ public final class ControlState {
     /** true = 播放视频自带声音；false = 静音（麦克风模式：通话走真实麦克风） */
     public static volatile boolean videoSound = false;
 
+    /** true = 作用域内某目标 App 的相机已被接管（悬浮窗此时显示） */
+    public static volatile boolean cameraActive = false;
+
     private ControlState() {
     }
 }

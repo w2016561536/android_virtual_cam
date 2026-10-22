@@ -102,11 +102,13 @@ public class MainActivity extends Activity {
         findViewById(R.id.btn_sound).setOnClickListener(v -> {
             ControlState.videoSound = !ControlState.videoSound;
             refreshControlIcons();
+            MediaProvider.notifyChanged(this);
             Toast.makeText(this, ControlState.videoSound ? "视频声音" : "麦克风（静音）", Toast.LENGTH_SHORT).show();
         });
         findViewById(R.id.btn_pause).setOnClickListener(v -> {
             ControlState.paused = !ControlState.paused;
             refreshControlIcons();
+            MediaProvider.notifyChanged(this);
         });
         findViewById(R.id.btn_prev).setOnClickListener(v -> cycleSource(-1));
         findViewById(R.id.btn_next).setOnClickListener(v -> cycleSource(1));
@@ -224,6 +226,12 @@ public class MainActivity extends Activity {
                     io.github.hpjxiangbabang.vcam.server.SourceServerService.class));
         } catch (Throwable t) {
             Toast.makeText(this, "源服务启动失败: " + t, Toast.LENGTH_SHORT).show();
+        }
+        // 起悬浮控制窗服务（显隐由目标 App 相机接管状态驱动；进程由源服务前台保活）
+        try {
+            startService(new android.content.Intent(this,
+                    io.github.hpjxiangbabang.vcam.server.FloatingControlService.class));
+        } catch (Throwable ignored) {
         }
     }
 

@@ -225,6 +225,7 @@ public final class Camera2Hook {
                         s.device = (CameraDevice) param.args[0];
                         s.recreateVirtualSurface();
                         sCurrent = s;
+                        HookMain.notifyCameraState(true);
                         log(pkg, "onOpened: " + s.device.getId());
                         if (sHookedDeviceClasses.add(param.args[0].getClass().getName())) {
                             installCreateSessionHooks(pkg, param.args[0].getClass());
@@ -245,9 +246,10 @@ public final class Camera2Hook {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         Cam2Session s = sCurrent;
-                        if (s != null && param.args[0].equals(s.device)) {
+                        if (s != null && param.args.length > 0 && param.args[0].equals(s.device)) {
                             s.stopOutputs();
                         }
+                        HookMain.notifyCameraState(false);
                         log(pkg, "camera onDisconnected");
                     }
                 });

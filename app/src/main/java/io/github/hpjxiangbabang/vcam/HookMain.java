@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.ParcelFileDescriptor;
 
 import java.io.File;
@@ -77,6 +78,31 @@ public class HookMain implements IXposedHookLoadPackage {
         }, "vcam-watchdog");
         t.setDaemon(true);
         t.start();
+    }
+
+    /** 配置/控制变更推送：ContentObserver 即时触发（Provider notifyChange 广播），
+     * 免去 2s 配置 TTL 等待。 */
+    private static void registerConfigObserver() {
+        try {
+            Context ctx = sAppContext != null ? sAppContext : null;
+            if (ctx == null) {
+                // handleLoadPackage 阶段还没有目标 App 上下文，等 onAppCreate 后再注册
+                return;
+            }
+            ctx.getContentResolver().registerContentObserver(
+                    MediaProvider.BASE_URI, true, new android.database.ContentObserver(new Handler()) {
+                        @Override
+                        public void onChange(boolean selfChange) {
+                            try {
+                                refreshConfig(true);
+                                sSourceCheckAt = 0;
+                                tick();
+                            } catch (Throwable ignored) {
+                            }
+                        }
+                    });
+        } catch (Throwable ignored) {
+        }
     }
 
     private static void tick() {
@@ -167,6 +193,7 @@ public class HookMain implements IXposedHookLoadPackage {
                             sAppContext = ((Application) param.args[0]).getApplicationContext();
                             sForcePrivateDir = resolveForcePrivateDir(lpparam.packageName);
                             refreshConfig(true);
+                            registerConfigObserver();
                         } catch (Throwable t) {
                             XposedBridge.log("【VCAM】onCreate:" + t);
                         }
@@ -462,6 +489,19 @@ public class HookMain implements IXposedHookLoadPackage {
     }
 
     // ---------------- 日志与提示 ----------------
+
+    /** hook 端上报相机接管状态 → 悬浮窗显隐（经 Provider call，模块进程处理）。 */
+    public static void notifyCameraState(boolean active) {
+        Context ctx = sAppContext;
+        if (ctx == null) {
+            return;
+        }
+        try {
+            ctx.getContentResolver().call(MediaProvider.BASE_URI, "cameraState",
+                    active ? "1" : "0", null);
+        } catch (Throwable ignored) {
+        }
+    }
 
     public static void log(String pkg, String msg) {
         try {

@@ -78,6 +78,7 @@ public final class Camera1Hook {
                         s.fakeSurface = new Surface(s.fakeTexture);
                         s.origSurface = new Surface(orig);
                         param.args[0] = s.fakeTexture;
+                        HookMain.notifyCameraState(true);
                         log(pkg, "已接管预览纹理");
                     }
                 });
@@ -177,6 +178,15 @@ public final class Camera1Hook {
                         if (HookMain.enabled(pkg)) {
                             log(pkg, "该应用触发了录像，暂不拦截（P4 处理）");
                         }
+                    }
+                });
+
+        // ---- 相机关闭：释放悬浮窗 ----
+        XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader,
+                "stopPreview", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        HookMain.notifyCameraState(false);
                     }
                 });
 

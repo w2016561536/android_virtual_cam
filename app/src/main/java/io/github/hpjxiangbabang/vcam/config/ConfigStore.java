@@ -74,7 +74,29 @@ public final class ConfigStore {
     }
 
     public static boolean saveForManager(VcamConfig config) {
-        return writeFile(publicConfigFile(), config);
+        boolean ok = writeFile(publicConfigFile(), config);
+        if (ok) {
+            notifyConfigChanged();
+        }
+        return ok;
+    }
+
+    /** 模块进程内持有 Provider 上下文，保存配置后广播变更（hook 端 ContentObserver 即时生效）。 */
+    private static volatile android.content.Context sNotifyContext;
+
+    public static void setNotifyContext(android.content.Context c) {
+        sNotifyContext = c;
+    }
+
+    private static void notifyConfigChanged() {
+        android.content.Context c = sNotifyContext;
+        if (c != null) {
+            try {
+                c.getContentResolver().notifyChange(
+                        android.net.Uri.parse("content://io.github.hpjxiangbabang.vcam.media"), null);
+            } catch (Throwable ignored) {
+            }
+        }
     }
 
     /** 供无存储权限的目标 App 使用：把配置落到它自己的目录。 */

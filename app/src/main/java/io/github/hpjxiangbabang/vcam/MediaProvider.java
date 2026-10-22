@@ -30,6 +30,7 @@ public class MediaProvider extends ContentProvider {
 
     @Override
     public boolean onCreate() {
+        ConfigStore.setNotifyContext(getContext());
         return true;
     }
 
@@ -64,7 +65,25 @@ public class MediaProvider extends ContentProvider {
             b.putBoolean("videoSound", ControlState.videoSound);
             return b;
         }
+        if ("cameraState".equals(method)) {
+            boolean active = arg != null && arg.equals("1");
+            ControlState.cameraActive = active;
+            try {
+                android.util.Log.i("VCAM-FLOAT", "cameraState -> " + active);
+            } catch (Throwable ignored) {
+            }
+            io.github.hpjxiangbabang.vcam.server.FloatingControlService.onCameraState(active);
+            return new Bundle();
+        }
         return null;
+    }
+
+    /** 模块进程内广播配置/控制变更（同进程 UI 与悬浮窗调用）。 */
+    public static void notifyChanged(android.content.Context ctx) {
+        try {
+            ctx.getContentResolver().notifyChange(BASE_URI, null);
+        } catch (Throwable ignored) {
+        }
     }
 
     @Override
