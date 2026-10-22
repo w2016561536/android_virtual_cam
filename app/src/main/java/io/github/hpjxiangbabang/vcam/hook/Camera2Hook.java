@@ -162,6 +162,39 @@ public final class Camera2Hook {
                         }
                     }
                 });
+
+        // ---- 运行时控制：源热切换 / 暂停 / 声音 ----
+        HookMain.addRuntimeListener(new HookMain.RuntimeListener() {
+            @Override
+            public void onSourceChanged(HookMain.SourceHandle h) {
+                Cam2Session s = sCurrent;
+                if (s != null && !HookMain.isPaused()) {
+                    try {
+                        s.stopOutputs();
+                        s.lastPathHash = -1;
+                        s.startOutputs(s.pkg);
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
+
+            @Override
+            public void onControlChanged(boolean paused, boolean videoSound) {
+                Cam2Session s = sCurrent;
+                if (s == null) {
+                    return;
+                }
+                try {
+                    if (paused) {
+                        s.stopOutputs();
+                    } else {
+                        s.startOutputs(s.pkg);
+                        s.applyVolume(videoSound);
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+        });
     }
 
     private static Cam2Session currentOrCreate(String pkg) {
@@ -396,7 +429,7 @@ public final class Camera2Hook {
             if (h == null) {
                 return;
             }
-            boolean mute = HookMain.muteFor(pkg);
+            boolean videoSound = HookMain.isVideoSound();
             boolean restart = h.display.hashCode() != lastPathHash;
             if (restart) {
                 stopOutputs();
@@ -432,28 +465,44 @@ public final class Camera2Hook {
                 if (previewPlayer == null || restart) {
                     stopPlayer(previewPlayer);
                     previewPlayer = h.pfd != null
-                            ? newPlayerFd(h.pfd, previewSurface, mute)
-                            : newPlayer(h.path, previewSurface, mute);
+                            ? newPlayerFd(h.pfd, previewSurface, videoSound)
+                            : newPlayer(h.path, previewSurface, videoSound);
                 }
             }
             if (previewSurface1 != null && previewSurface1.isValid()) {
                 if (previewPlayer1 == null || restart) {
                     stopPlayer(previewPlayer1);
                     previewPlayer1 = h.pfd != null
-                            ? newPlayerFd(h.pfd, previewSurface1, mute)
-                            : newPlayer(h.path, previewSurface1, mute);
+                            ? newPlayerFd(h.pfd, previewSurface1, videoSound)
+                            : newPlayer(h.path, previewSurface1, videoSound);
                 }
             }
         }
 
-        private MediaPlayer newPlayerFd(ParcelFileDescriptor pfd, Surface surface, boolean mute) {
+        void applyVolume(boolean videoSound) {
+            float vol = videoSound ? 1f : 0f;
+            try {
+                if (previewPlayer != null) {
+                    previewPlayer.setVolume(vol, vol);
+                }
+            } catch (Throwable ignored) {
+            }
+            try {
+                if (previewPlayer1 != null) {
+                    previewPlayer1.setVolume(vol, vol);
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        private MediaPlayer newPlayerFd(ParcelFileDescriptor pfd, Surface surface, boolean videoSound) {
             if (surface == null || !surface.isValid()) {
                 return null;
             }
             MediaPlayer mp = new MediaPlayer();
             try {
                 mp.setSurface(surface);
-                if (mute) {
+                if (!videoSound) {
                     mp.setVolume(0f, 0f);
                 }
                 mp.setLooping(true);
@@ -479,14 +528,14 @@ public final class Camera2Hook {
             return mp;
         }
 
-        private MediaPlayer newPlayer(String path, Surface surface, boolean mute) {
+        private MediaPlayer newPlayer(String path, Surface surface, boolean videoSound) {
             if (surface == null || !surface.isValid()) {
                 return null;
             }
             MediaPlayer mp = new MediaPlayer();
             try {
                 mp.setSurface(surface);
-                if (mute) {
+                if (!videoSound) {
                     mp.setVolume(0f, 0f);
                 }
                 mp.setLooping(true);

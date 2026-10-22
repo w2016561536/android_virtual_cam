@@ -58,6 +58,12 @@ public class MediaProvider extends ContentProvider {
                 return null;
             }
         }
+        if ("getControl".equals(method)) {
+            Bundle b = new Bundle();
+            b.putBoolean("paused", ControlState.paused);
+            b.putBoolean("videoSound", ControlState.videoSound);
+            return b;
+        }
         return null;
     }
 

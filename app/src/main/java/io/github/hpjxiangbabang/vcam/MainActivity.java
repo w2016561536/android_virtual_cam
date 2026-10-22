@@ -12,11 +12,14 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.view.View;
 import android.widget.CompoundButton;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import io.github.hpjxiangbabang.vcam.ControlState;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -40,6 +43,10 @@ public class MainActivity extends Activity {
     private Switch disable_toast_switch;
     private Switch fit_inside_switch;
     private TextView log_view;
+    private TextView currentSourceView;
+    private android.widget.Button btnSound;
+    private android.widget.Button btnPause;
+    private LinearLayout settingsBox;
     private VcamConfig config;
 
     @Override
@@ -88,9 +95,33 @@ public class MainActivity extends Activity {
         // P2.1 源库（SAF 文件选择器，MIME 预设过滤）
         findViewById(R.id.btn_add_video).setOnClickListener(v -> pickSource("video"));
         findViewById(R.id.btn_add_image).setOnClickListener(v -> pickSource("image"));
+        // 控制条（播放器形式：声音/上一个/暂停/下一个/列表）
+        btnSound = findViewById(R.id.btn_sound);
+        btnPause = findViewById(R.id.btn_pause);
+        currentSourceView = findViewById(R.id.current_source);
+        findViewById(R.id.btn_sound).setOnClickListener(v -> {
+            ControlState.videoSound = !ControlState.videoSound;
+            refreshControlIcons();
+            Toast.makeText(this, ControlState.videoSound ? "视频声音" : "麦克风（静音）", Toast.LENGTH_SHORT).show();
+        });
+        findViewById(R.id.btn_pause).setOnClickListener(v -> {
+            ControlState.paused = !ControlState.paused;
+            refreshControlIcons();
+        });
+        findViewById(R.id.btn_prev).setOnClickListener(v -> cycleSource(-1));
+        findViewById(R.id.btn_next).setOnClickListener(v -> cycleSource(1));
+        findViewById(R.id.btn_list).setOnClickListener(v -> defaultSourceDialog());
+
+        // 二级入口：设置与日志
+        settingsBox = findViewById(R.id.settings_box);
+        findViewById(R.id.btn_settings).setOnClickListener(v -> {
+            boolean show = settingsBox.getVisibility() != View.VISIBLE;
+            settingsBox.setVisibility(show ? View.VISIBLE : View.GONE);
+            ((Button) v).setText(show ? "设置与日志 ▲" : "设置与日志 ▼");
+        });
+
         findViewById(R.id.btn_del_source).setOnClickListener(v -> deleteSourceDialog());
         findViewById(R.id.btn_bind_app).setOnClickListener(v -> bindAppDialog());
-        findViewById(R.id.btn_default_source).setOnClickListener(v -> defaultSourceDialog());
 
         loadConfig();
 
@@ -205,6 +236,45 @@ public class MainActivity extends Activity {
         force_show_switch.setChecked(
                 new File(Environment.getExternalStorageDirectory(), "DCIM/Camera1/force_show.jpg").exists());
         refreshSourcesSummary();
+        refreshControlIcons();
+    }
+
+    /** 控制条图标与"当前源"标签。 */
+    private void refreshControlIcons() {
+        if (btnSound == null) {
+            return;
+        }
+        btnSound.setText(ControlState.videoSound ? "🔊" : "🎤");
+        btnSound.setContentDescription(ControlState.videoSound ? "视频声音" : "麦克风");
+        btnPause.setText(ControlState.paused ? "▶" : "⏸");
+        if (currentSourceView != null) {
+            String cur = config.defaultSourceName != null && config.defaultSourceName.length() > 0
+                    ? config.defaultSourceName : "virtual.mp4(传统)";
+            String state = ControlState.paused ? " ⏸已暂停" : "";
+            currentSourceView.setText("当前源: " + cur + state);
+        }
+    }
+
+    /** 上一个/下一个源：在 [传统 virtual.mp4] + 源库 顺序上循环，写默认源并热切换。 */
+    private void cycleSource(int dir) {
+        java.util.List<String> order = new java.util.ArrayList<>();
+        order.add("virtual.mp4");
+        order.addAll(config.sources.keySet());
+        if (order.size() <= 1) {
+            Toast.makeText(this, "源库为空，先添加源", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String cur = config.defaultSourceName != null && config.defaultSourceName.length() > 0
+                ? config.defaultSourceName : "virtual.mp4";
+        int idx = order.indexOf(cur);
+        if (idx < 0) {
+            idx = 0;
+        }
+        int ni = ((idx + dir) % order.size() + order.size()) % order.size();
+        String name = order.get(ni);
+        config.defaultSourceName = name.equals("virtual.mp4") ? "" : name;
+        save();
+        Toast.makeText(this, "已切换: " + name, Toast.LENGTH_SHORT).show();
     }
 
     private void save() {

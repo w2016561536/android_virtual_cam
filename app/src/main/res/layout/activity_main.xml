@@ -1,52 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
+    android:layout_width="match_parent"
     android:layout_height="match_parent">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="8dp">
 
+        <!-- 播放器控制条 -->
         <TextView
-            android:id="@+id/textView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:text="@string/description"
-            android:textSize="20sp" />
-
-        <TextView
-            android:id="@+id/textView2"
+            android:id="@+id/current_source"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/Warning"
-            android:textSize="20sp" />
-
-        <TextView
-            android:id="@+id/log_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="@string/log_title"
-            android:textSize="20sp" />
-
-        <TextView
-            android:id="@+id/log_hint"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/log_hint"
-            android:textSize="14sp" />
-
-        <TextView
-            android:id="@+id/log_view"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="#F3F3F3"
-            android:padding="8dp"
-            android:textIsSelectable="true"
-            android:textSize="15sp" />
+            android:textSize="15sp"
+            android:textStyle="bold" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -54,111 +24,49 @@
             android:orientation="horizontal">
 
             <Button
-                android:id="@+id/log_refresh"
+                android:id="@+id/btn_sound"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/log_refresh" />
+                android:textSize="22sp" />
 
             <Button
-                android:id="@+id/log_clear"
+                android:id="@+id/btn_prev"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/log_clear" />
+                android:textSize="22sp" />
+
+            <Button
+                android:id="@+id/btn_pause"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="22sp" />
+
+            <Button
+                android:id="@+id/btn_next"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="22sp" />
+
+            <Button
+                android:id="@+id/btn_list"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="22sp" />
         </LinearLayout>
 
-        <TableLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="visible">
-
-            <TableRow
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:minHeight="48dp">
-
-                <Switch
-                    android:id="@+id/switch1"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:text="@string/switch1" />
-            </TableRow>
-
-            <TableRow
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:minHeight="48dp">
-
-                <Switch
-                    android:id="@+id/switch2"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:minHeight="48dp"
-                    android:text="@string/switch2" />
-
-            </TableRow>
-
-            <TableRow
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:minHeight="48dp">
-
-                <Switch
-                    android:id="@+id/switch3"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:minHeight="48dp"
-                    android:text="@string/switch3" />
-            </TableRow>
-
-            <TableRow
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:minHeight="48dp">
-
-                <Switch
-                    android:id="@+id/switch4"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:minHeight="48dp"
-                    android:text="@string/switch4" />
-            </TableRow>
-
-            <TableRow
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:minHeight="48dp">
-
-                <Switch
-                    android:id="@+id/switch5"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:minHeight="48dp"
-                    android:text="@string/switch5" />
-            </TableRow>
-
-            <TableRow
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:minHeight="48dp">
-
-                <Switch
-                    android:id="@+id/switch6"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:minHeight="48dp"
-                    android:text="@string/switch6" />
-            </TableRow>
-
-        </TableLayout>
-
+        <!-- 源库与应用绑定 -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="源库与应用绑定（P2）"
-            android:textSize="20sp" />
+            android:layout_marginTop="8dp"
+            android:text="源库与应用绑定"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/sources_summary"
@@ -195,31 +103,168 @@
             android:orientation="horizontal">
 
             <Button
-                android:id="@+id/btn_del_source"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="删除源" />
-
-            <Button
                 android:id="@+id/btn_bind_app"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="应用绑定" />
+
+            <Button
+                android:id="@+id/btn_del_source"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="删除源" />
         </LinearLayout>
 
+        <!-- 二级入口：设置与日志 -->
         <Button
-            android:id="@+id/btn_default_source"
+            android:id="@+id/btn_settings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="选择默认源（未绑定应用时使用）" />
+            android:layout_marginTop="12dp"
+            android:text="设置与日志 ▼" />
+
+        <LinearLayout
+            android:id="@+id/settings_box"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TableLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:minHeight="48dp">
+
+                    <Switch
+                        android:id="@+id/switch1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:text="@string/switch1" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:minHeight="48dp">
+
+                    <Switch
+                        android:id="@+id/switch2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minHeight="48dp"
+                        android:text="@string/switch2" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:minHeight="48dp">
+
+                    <Switch
+                        android:id="@+id/switch3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minHeight="48dp"
+                        android:text="@string/switch3" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:minHeight="48dp">
+
+                    <Switch
+                        android:id="@+id/switch4"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minHeight="48dp"
+                        android:text="@string/switch4" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:minHeight="48dp">
+
+                    <Switch
+                        android:id="@+id/switch5"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minHeight="48dp"
+                        android:text="@string/switch5" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:minHeight="48dp">
+
+                    <Switch
+                        android:id="@+id/switch6"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minHeight="48dp"
+                        android:text="@string/switch6" />
+                </TableRow>
+            </TableLayout>
+
+            <TextView
+                android:id="@+id/log_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/log_title"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/log_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/log_hint"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/log_view"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="#F3F3F3"
+                android:padding="8dp"
+                android:textIsSelectable="true"
+                android:textSize="14sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/log_refresh"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/log_refresh" />
+
+                <Button
+                    android:id="@+id/log_clear"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/log_clear" />
+            </LinearLayout>
+        </LinearLayout>
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="添加源后用「应用绑定」把源分给指定应用；默认源仍是 DCIM/Camera1/virtual.mp4。图片源会自动生成循环视频缓存。"
+            android:text="@string/Warning"
             android:textSize="13sp" />
     </LinearLayout>
 </ScrollView>

@@ -32,6 +32,94 @@ import io.github.hpjxiangbabang.vcam.hook.Camera2Hook;
 public class HookMain implements IXposedHookLoadPackage {
 
     private static final long CONFIG_TTL_MS = 2000;
+    private static final long WATCHDOG_INTERVAL_MS = 500;
+
+    /** hook 端运行时监听器（源热切换 / 播放控制变更） */
+    public interface RuntimeListener {
+        void onSourceChanged(SourceHandle h);
+
+        void onControlChanged(boolean paused, boolean videoSound);
+    }
+
+    private static final java.util.concurrent.CopyOnWriteArrayList<RuntimeListener> sListeners =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    public static void addRuntimeListener(RuntimeListener l) {
+        sListeners.add(l);
+    }
+
+    private static volatile boolean sPaused = false;
+    private static volatile boolean sVideoSound = false;
+    private static volatile String sLastSourceSig;
+
+    public static boolean isPaused() {
+        return sPaused;
+    }
+
+    public static boolean isVideoSound() {
+        return sVideoSound;
+    }
+
+    private static void startWatchdog() {
+        Thread t = new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(WATCHDOG_INTERVAL_MS);
+                    tick();
+                } catch (Throwable t2) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        return;
+                    }
+                }
+            }
+        }, "vcam-watchdog");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private static void tick() {
+        // 1) 控制状态（暂停/声音）经 Provider 轮询
+        Context ctx = sAppContext;
+        if (ctx != null) {
+            try {
+                Bundle b = ctx.getContentResolver().call(MediaProvider.BASE_URI, "getControl", null, null);
+                if (b != null) {
+                    boolean p = b.getBoolean("paused", false);
+                    boolean v = b.getBoolean("videoSound", false);
+                    if (p != sPaused || v != sVideoSound) {
+                        sPaused = p;
+                        sVideoSound = v;
+                        for (RuntimeListener l : sListeners) {
+                            try {
+                                l.onControlChanged(p, v);
+                            } catch (Throwable ignored) {
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        // 2) 源签名变更（热切换）
+        if (sourceReady(sPkg)) {
+            SourceHandle h = sSourceHandle;
+            String sig = sPkg + "|" + sourceName(sPkg) + "|" + (h != null ? h.display : "null");
+            if (!sig.equals(sLastSourceSig)) {
+                boolean first = sLastSourceSig == null;
+                sLastSourceSig = sig;
+                if (!first && h != null) {
+                    for (RuntimeListener l : sListeners) {
+                        try {
+                            l.onSourceChanged(h);
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     private static volatile VcamConfig sConfig;
     private static volatile long sConfigAt;
@@ -76,6 +164,7 @@ public class HookMain implements IXposedHookLoadPackage {
 
         Camera1Hook.install(lpparam);
         Camera2Hook.install(lpparam);
+        startWatchdog();
     }
 
     // ---------------- 配置访问（hook 层统一走这里） ----------------

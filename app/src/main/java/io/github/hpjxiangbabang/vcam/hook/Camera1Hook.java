@@ -173,6 +173,33 @@ public final class Camera1Hook {
                         }
                     }
                 });
+
+        // ---- 运行时控制：源热切换 / 暂停 / 声音 ----
+        HookMain.addRuntimeListener(new HookMain.RuntimeListener() {
+            @Override
+            public void onSourceChanged(HookMain.SourceHandle h) {
+                synchronized (sSessions) {
+                    for (Cam1Session s : sSessions.values()) {
+                        try {
+                            s.switchSource(h, HookMain.isVideoSound());
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onControlChanged(boolean paused, boolean videoSound) {
+                synchronized (sSessions) {
+                    for (Cam1Session s : sSessions.values()) {
+                        try {
+                            s.applyControl(paused, videoSound);
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                }
+            }
+        });
     }
 
     private static Cam1Session sessionFor(Camera camera, String pkg) {
@@ -198,35 +225,17 @@ public final class Camera1Hook {
             return;
         }
         log(pkg, "startPreview 源=" + h.display);
-        boolean mute = HookMain.muteFor(pkg);
+        boolean videoSound = HookMain.isVideoSound();
         boolean sourceChanged = s.handle == null || !s.handle.display.equals(h.display);
         s.handle = h;
         if (sourceChanged) {
-            if (s.bufferSource != null) {
-                try {
-                    s.bufferSource.stop();
-                } catch (Throwable ignored) {
-                }
-                s.bufferSource = null;
-            }
-            FrameBuffer buffer = new FrameBuffer();
-            s.buffer = buffer;
-            s.bufferSource = h.pfd != null
-                    ? new VideoFrameSource(h.pfd, buffer)
-                    : new VideoFrameSource(h.path, buffer);
-            s.bufferSource.setErrorListener(new VideoFrameSource.ErrorListener() {
-                @Override
-                public void onError(Throwable t, String stage) {
-                    log(s.pkg, "解码异常[" + stage + "]:" + t);
-                }
-            });
-            s.bufferSource.start();
+            s.rebuildBuffer(h);
             s.lastPlayerHash = -1; // 强制播放器随源重启
         }
         if (h.pfd != null) {
-            s.ensurePlayersFd(h, mute);
+            s.ensurePlayersFd(h, videoSound);
         } else {
-            s.ensurePlayers(h.path, mute);
+            s.ensurePlayers(h.path, videoSound);
         }
     }
 
@@ -364,7 +373,7 @@ public final class Camera1Hook {
             this.pkg = pkg;
         }
 
-        void ensurePlayers(String path, boolean mute) {
+        void ensurePlayers(String path, boolean videoSound) {
             int hash = path.hashCode();
             if (player != null && lastPlayerHash == hash) {
                 return; // 已在播同一源
@@ -372,33 +381,33 @@ public final class Camera1Hook {
             releasePlayers();
             // 关键：视频渲染到目标 App 原来的纹理面（旧版语义），不是假纹理
             origSurface = origTexture != null ? new Surface(origTexture) : null;
-            player = newPlayer(path, origSurface, mute);
+            player = newPlayer(path, origSurface, videoSound);
             holderPlayer = newPlayer(path,
-                    holder != null ? holder.getSurface() : null, mute);
+                    holder != null ? holder.getSurface() : null, videoSound);
             lastPlayerHash = hash;
         }
 
-        void ensurePlayersFd(HookMain.SourceHandle h, boolean mute) {
+        void ensurePlayersFd(HookMain.SourceHandle h, boolean videoSound) {
             int hash = h.display.hashCode();
             if (player != null && lastPlayerHash == hash) {
                 return;
             }
             releasePlayers();
             origSurface = origTexture != null ? new Surface(origTexture) : null;
-            player = newPlayerFd(h.pfd, origSurface, mute);
+            player = newPlayerFd(h.pfd, origSurface, videoSound);
             holderPlayer = newPlayerFd(h.pfd,
-                    holder != null ? holder.getSurface() : null, mute);
+                    holder != null ? holder.getSurface() : null, videoSound);
             lastPlayerHash = hash;
         }
 
-        private MediaPlayer newPlayerFd(ParcelFileDescriptor pfd, Surface surface, boolean mute) {
+        private MediaPlayer newPlayerFd(ParcelFileDescriptor pfd, Surface surface, boolean videoSound) {
             if (surface == null || !surface.isValid()) {
                 return null;
             }
             MediaPlayer mp = new MediaPlayer();
             try {
                 mp.setSurface(surface);
-                if (mute) {
+                if (!videoSound) {
                     mp.setVolume(0f, 0f);
                 }
                 mp.setLooping(true);
@@ -424,14 +433,14 @@ public final class Camera1Hook {
             return mp;
         }
 
-        private MediaPlayer newPlayer(String path, Surface surface, boolean mute) {
+        private MediaPlayer newPlayer(String path, Surface surface, boolean videoSound) {
             if (surface == null || !surface.isValid()) {
                 return null;
             }
             MediaPlayer mp = new MediaPlayer();
             try {
                 mp.setSurface(surface);
-                if (mute) {
+                if (!videoSound) {
                     mp.setVolume(0f, 0f);
                 }
                 mp.setLooping(true);
@@ -459,6 +468,108 @@ public final class Camera1Hook {
 
         boolean bufferSourceAlive() {
             return bufferSource != null && buffer.latest() != null;
+        }
+
+        /** 热切换：换源重建（暂停态则只记录，等恢复时重建）。 */
+        void switchSource(HookMain.SourceHandle h, boolean videoSound) {
+            this.handle = h;
+            if (HookMain.isPaused()) {
+                releasePlayers();
+                stopBufferKeepLast();
+                lastPlayerHash = -1;
+                return;
+            }
+            releasePlayers();
+            rebuildBuffer(h);
+            lastPlayerHash = -1;
+            if (h.pfd != null) {
+                ensurePlayersFd(h, videoSound);
+            } else {
+                ensurePlayers(h.path, videoSound);
+            }
+        }
+
+        /** 播放控制：暂停=冻结当前帧（播放器 pause + 缓冲源停），恢复=重建缓冲续播。 */
+        void applyControl(boolean paused, boolean videoSound) {
+            if (paused) {
+                try {
+                    if (player != null) {
+                        player.pause();
+                    }
+                } catch (Throwable ignored) {
+                }
+                try {
+                    if (holderPlayer != null) {
+                        holderPlayer.pause();
+                    }
+                } catch (Throwable ignored) {
+                }
+                stopBufferKeepLast();
+            } else {
+                applyVolume(videoSound);
+                if (bufferSource == null && handle != null) {
+                    rebuildBuffer(handle);
+                }
+                try {
+                    if (player != null) {
+                        player.start();
+                    }
+                } catch (Throwable ignored) {
+                }
+                try {
+                    if (holderPlayer != null) {
+                        holderPlayer.start();
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+
+        void applyVolume(boolean videoSound) {
+            float vol = videoSound ? 1f : 0f;
+            try {
+                if (player != null) {
+                    player.setVolume(vol, vol);
+                }
+            } catch (Throwable ignored) {
+            }
+            try {
+                if (holderPlayer != null) {
+                    holderPlayer.setVolume(vol, vol);
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        /** 停解码但保留 FrameBuffer 里的最后一帧（预览回调继续送冻结帧）。 */
+        void stopBufferKeepLast() {
+            if (bufferSource != null) {
+                try {
+                    bufferSource.stop();
+                } catch (Throwable ignored) {
+                }
+                bufferSource = null;
+            }
+        }
+
+        /** 用当前 handle 重建缓冲源（复用同一 FrameBuffer，最后帧保留）。 */
+        void rebuildBuffer(HookMain.SourceHandle h) {
+            stopBufferKeepLast();
+            if (buffer == null) {
+                buffer = new FrameBuffer();
+            }
+            buffer.reopen();
+            bufferSource = h.pfd != null
+                    ? new VideoFrameSource(h.pfd, buffer)
+                    : new VideoFrameSource(h.path, buffer);
+            bufferSource.setTargetSize(previewW, previewH, HookMain.fitMode(pkg));
+            bufferSource.setErrorListener(new VideoFrameSource.ErrorListener() {
+                @Override
+                public void onError(Throwable t, String stage) {
+                    log(pkg, "解码异常[" + stage + "]:" + t);
+                }
+            });
+            bufferSource.start();
         }
 
         void releasePlayers() {
