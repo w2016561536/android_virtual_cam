@@ -128,9 +128,13 @@ public class HookMain implements IXposedHookLoadPackage {
                     logVerbose(sPkg, "watchdog 源切换: " + name + " (" + h.display + ")");
                     fireSourceChanged(h);
                 }
-            } else if (!"unavailable".equals(sLastSourceSig)) {
-                sLastSourceSig = "unavailable";
-                logVerbose(sPkg, "watchdog: 源不可用");
+            } else {
+                // 关键：失败必须清掉旧句柄，否则下个 tick 会拿"旧句柄+新源名"误触发重建
+                sSourceHandle = null;
+                if (!"unavailable".equals(sLastSourceSig)) {
+                    sLastSourceSig = "unavailable";
+                    logVerbose(sPkg, "watchdog: 源不可用");
+                }
             }
         } catch (Throwable t) {
             logVerbose(sPkg, "watchdog 源计算异常: " + t);
