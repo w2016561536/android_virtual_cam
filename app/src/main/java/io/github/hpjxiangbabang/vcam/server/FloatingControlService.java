@@ -247,6 +247,54 @@ public class FloatingControlService extends Service {
         return bar;
     }
 
+    /**
+     * 拖动 + 点击统一处理：DOWN 记录起点；MOVE 超过阈值进入拖动；
+     * UP 时若未发生拖动则执行 onTap（null 忽略）。返回 true 保证拖动流不断。
+     */
+    private void attachDrag(View v, final Runnable onTap) {
+        v.setOnTouchListener(new View.OnTouchListener() {
+            float downX, downY;
+            int startX, startY;
+            boolean dragging;
+
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (mParams == null) {
+                    return false;
+                }
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downX = event.getRawX();
+                        downY = event.getRawY();
+                        startX = mParams.x;
+                        startY = mParams.y;
+                        dragging = false;
+                        return true;
+                    case MotionEvent.ACTION_MOVE:
+                        float dx = event.getRawX() - downX;
+                        float dy = event.getRawY() - downY;
+                        if (dragging || Math.abs(dx) > 12 || Math.abs(dy) > 12) {
+                            dragging = true;
+                            mParams.x = startX + (int) dx;
+                            mParams.y = startY + (int) dy;
+                            try {
+                                mWm.updateViewLayout(mCurrent, mParams);
+                            } catch (Throwable ignored) {
+                            }
+                        }
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        if (!dragging && onTap != null) {
+                            onTap.run();
+                        }
+                        return true;
+                    default:
+                        return true;
+                }
+            }
+        });
+    }
+
     /** 与主界面控制条一致的"当前源"循环切换（全局：默认源+所有绑定）。 */
     private void cycleSource(int dir) {
         try {
