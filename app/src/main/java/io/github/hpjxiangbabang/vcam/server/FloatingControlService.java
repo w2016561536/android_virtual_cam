@@ -34,12 +34,14 @@ public class FloatingControlService extends Service {
     private WindowManager.LayoutParams mParams;
     private Handler mMain;
 
-    public static void onCameraState(boolean active) {
+    public static void onCameraState(android.content.Context ctx, boolean active) {
         FloatingControlService s = sInstance;
         if (s == null && active) {
             // 进程被杀后静态状态丢失：显式拉起服务，onCreate 会按 cameraActive 恢复悬浮条
             try {
-                startService(new Intent(this, FloatingControlService.class));
+                if (ctx != null) {
+                    ctx.startService(new Intent(ctx, FloatingControlService.class));
+                }
             } catch (Throwable ignored) {
             }
             return;
