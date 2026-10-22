@@ -34,8 +34,20 @@ public final class VcamConfig {
     /** 本地源服务地址（模块进程 HTTP 服务），非空时 hook 端优先使用 */
     public String serverUrl = "";
 
+    /** 全局默认源名（源库里的 key）；空 = 传统 virtual.mp4 */
+    public String defaultSourceName = "";
+
     /** 每目标 App 配置，key = 包名；缺失字段回落全局值 */
     public final LinkedHashMap<String, AppEntry> apps = new LinkedHashMap<>();
+
+    /** 源库，key = 源名；P2.1 支持 video/image（rtmp 预留 P2.2） */
+    public final LinkedHashMap<String, SourceEntry> sources = new LinkedHashMap<>();
+
+    public static final class SourceEntry {
+        public String type = "video";   // video | image | rtmp
+        public String path = "";        // video/rtmp: 路径或 URL；image: 原图路径
+        public String cache = null;     // image: 由模块预生成的循环 mp4（目标 App 经源服务取）
+    }
 
     public static final class AppEntry {
         public boolean enabled = true;
@@ -52,6 +64,14 @@ public final class VcamConfig {
     /** hook 端取有效值 */
     public boolean enabledFor(String packageName) {
         return !disabled && app(packageName).enabled;
+    }
+
+    /** 按源名解析出"实际媒体位置"（路径或缓存 mp4）。未知名返回 null。 */
+    public SourceEntry resolveSource(String name) {
+        if (name == null || name.length() == 0) {
+            return null;
+        }
+        return sources.get(name);
     }
 
     public String sourceFor(String packageName) {
@@ -90,6 +110,18 @@ public final class VcamConfig {
             root.put("global", g);
             root.put("default_source", defaultSource == null ? "" : defaultSource);
             root.put("server_url", serverUrl == null ? "" : serverUrl);
+            root.put("default_source_name", defaultSourceName == null ? "" : defaultSourceName);
+            JSONObject s = new JSONObject();
+            for (Map.Entry<String, SourceEntry> en : sources.entrySet()) {
+                JSONObject o = new JSONObject();
+                o.put("type", en.getValue().type);
+                o.put("path", en.getValue().path);
+                if (en.getValue().cache != null) {
+                    o.put("cache", en.getValue().cache);
+                }
+                s.put(en.getKey(), o);
+            }
+            root.put("sources", s);
             JSONObject a = new JSONObject();
             for (Map.Entry<String, AppEntry> en : apps.entrySet()) {
                 JSONObject o = new JSONObject();
@@ -128,6 +160,23 @@ public final class VcamConfig {
             }
             c.defaultSource = root.optString("default_source", "");
             c.serverUrl = root.optString("server_url", "");
+            c.defaultSourceName = root.optString("default_source_name", "");
+            JSONObject s = root.optJSONObject("sources");
+            if (s != null) {
+                Iterator<String> sk = s.keys();
+                while (sk.hasNext()) {
+                    String name = sk.next();
+                    JSONObject o = s.optJSONObject(name);
+                    if (o == null) {
+                        continue;
+                    }
+                    SourceEntry e = new SourceEntry();
+                    e.type = o.optString("type", "video");
+                    e.path = o.optString("path", "");
+                    e.cache = o.has("cache") ? o.optString("cache", null) : null;
+                    c.sources.put(name, e);
+                }
+            }
             JSONObject a = root.optJSONObject("apps");
             if (a != null) {
                 Iterator<String> keys = a.keys();

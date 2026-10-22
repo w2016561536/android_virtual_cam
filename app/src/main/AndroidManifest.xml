@@ -26,6 +26,12 @@
             android:authorities="io.github.hpjxiangbabang.vcam.log"
             android:exported="true" />
 
+        <provider
+            android:name=".MediaProvider"
+            android:authorities="io.github.hpjxiangbabang.vcam.media"
+            android:exported="true"
+            android:grantUriPermissions="true" />
+
         <service
             android:name=".server.SourceServerService"
             android:exported="false" />
@@ -45,5 +51,12 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
 </manifest>

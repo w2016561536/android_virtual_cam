@@ -4,8 +4,11 @@ import android.Manifest;
 import android.app.Application;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 
 import java.io.File;
 
@@ -32,8 +35,8 @@ public class HookMain implements IXposedHookLoadPackage {
 
     private static volatile VcamConfig sConfig;
     private static volatile long sConfigAt;
-    private static volatile String sSourceReady;   // 缓存"源文件可用"的判定结果
-    private static volatile String sSourceKey;     // pkg|path → 缓存键
+    private static volatile SourceHandle sSourceHandle;  // 当前源句柄（path 或 provider FD）
+    private static volatile String sSourceKey;     // pkg|name → 缓存键
     private static volatile long sSourceCheckAt;
     private static volatile Context sAppContext;
     private static volatile String sPkg;
@@ -45,7 +48,13 @@ public class HookMain implements IXposedHookLoadPackage {
             return;
         }
         sPkg = lpparam.packageName;
-        sConfig = ConfigStore.loadForHook(null);
+        sConfig = providerConfig();
+        if (sConfig == null) {
+            sConfig = fetchHttpConfig();
+        }
+        if (sConfig == null) {
+            sConfig = ConfigStore.loadForHook(null);
+        }
 
         // 目标 App 起来后拿 Context：配置回落目录 + 权限判定
         XposedHelpers.findAndHookMethod("android.app.Instrumentation", lpparam.classLoader,
@@ -77,11 +86,57 @@ public class HookMain implements IXposedHookLoadPackage {
             return;
         }
         sConfigAt = now;
-        VcamConfig c = ConfigStore.loadForHook(sAppContext);
+        // 通道优先级：Provider(binder，不受存储权限/明文策略限制) → 本地 http → 文件
+        VcamConfig c = providerConfig();
+        if (c == null) {
+            c = fetchHttpConfig();
+        }
+        if (c == null) {
+            c = ConfigStore.loadForHook(sAppContext);
+        }
         if (c != null) {
             sConfig = c;
         }
         sSourceCheckAt = 0; // 源可用性重新判定
+    }
+
+    /** content://io.github.hpjxiangbabang.vcam.media → getConfig */
+    private static VcamConfig providerConfig() {
+        Context ctx = sAppContext;
+        if (ctx == null) {
+            return null;
+        }
+        try {
+            Bundle b = ctx.getContentResolver().call(MediaProvider.BASE_URI, "getConfig", null, null);
+            String json = b != null ? b.getString("json") : null;
+            if (json != null && json.length() > 2) {
+                return VcamConfig.fromJson(new org.json.JSONObject(json));
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    /** http://127.0.0.1:37199/config —— 300ms 超时，失败返回 null（回环连接拒绝几乎是即时的）。 */
+    private static VcamConfig fetchHttpConfig() {
+        try {
+            java.net.URL u = new java.net.URL(ConfigStore.SERVER_URL + "/config");
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) u.openConnection();
+            conn.setConnectTimeout(300);
+            conn.setReadTimeout(500);
+            java.io.InputStream in = conn.getInputStream();
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                bos.write(buf, 0, n);
+            }
+            in.close();
+            conn.disconnect();
+            return VcamConfig.fromJson(new org.json.JSONObject(bos.toString("UTF-8")));
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     static VcamConfig config() {
@@ -95,34 +150,127 @@ public class HookMain implements IXposedHookLoadPackage {
     }
 
     public static boolean sourceReady(String pkg) {
-        String path = effectiveSource(pkg);
-        String key = pkg + "|" + path;
+        String name = sourceName(pkg);
+        String key = pkg + "|" + name;
         long now = System.currentTimeMillis();
         if (!key.equals(sSourceKey) || now - sSourceCheckAt > CONFIG_TTL_MS) {
             sSourceCheckAt = now;
             sSourceKey = key;
-            if (path.startsWith("http")) {
-                sSourceReady = path;
-            } else {
-                File f = resolveSourceFile(pkg, path);
-                sSourceReady = f != null ? f.getAbsolutePath() : null;
-            }
+            sSourceHandle = openSource(pkg, name);
         }
-        return sSourceReady != null;
+        return sSourceHandle != null;
     }
 
-    /** HTTP 源服务优先（目标 App 不需要文件权限），文件路径兜底。 */
+    /** sourceReady 后取缓存的源句柄。 */
+    public static SourceHandle sourceHandle(String pkg) {
+        return sSourceHandle;
+    }
+
+    /** 源名解析：应用绑定 > 全局默认源选择 > 传统 virtual.mp4。 */
+    public static String sourceName(String pkg) {
+        VcamConfig c = config();
+        String n = c.app(pkg).source;
+        if (n == null || n.length() == 0) {
+            n = c.defaultSourceName;
+        }
+        if (n == null || n.length() == 0) {
+            n = "virtual.mp4";
+        }
+        return n;
+    }
+
+    /**
+     * 打开源（按通道优先级）：
+     * 1. MediaProvider FD（binder，不受存储权限/明文策略限制）—— 首选
+     * 2. 可直读的文件路径（模块自身 / 旧版存储视图的进程）
+     * 3. 明文 http 允许的 App → 本地源服务 URL
+     */
+    private static SourceHandle openSource(String pkg, String name) {
+        Context ctx = sAppContext;
+        if (ctx != null) {
+            try {
+                Uri uri = Uri.parse(MediaProvider.BASE_URI + "/v/" + android.net.Uri.encode(name));
+                ParcelFileDescriptor pfd = ctx.getContentResolver().openFile(uri, "r", null);
+                if (pfd != null) {
+                    return new SourceHandle(null, pfd, "provider:" + name);
+                }
+            } catch (Throwable t) {
+                log(pkg, "provider 打开源失败: " + t);
+            }
+        }
+        String path = effectiveSource(pkg);
+        if (path != null && path.startsWith("http")) {
+            return new SourceHandle(path, null, path);
+        }
+        if (path != null) {
+            File f = resolveSourceFile(pkg, path);
+            if (f != null) {
+                return new SourceHandle(f.getAbsolutePath(), null, f.getAbsolutePath());
+            }
+        }
+        return null;
+    }
+
+    /** 源句柄：path（http/文件）或 pfd（provider FD），二选一。 */
+    public static final class SourceHandle {
+        public final String path;
+        public final ParcelFileDescriptor pfd;
+        public final String display;
+
+        SourceHandle(String path, ParcelFileDescriptor pfd, String display) {
+            this.path = path;
+            this.pfd = pfd;
+            this.display = display;
+        }
+    }
+
+    /** 优先级：应用显式绑定 > 全局默认源选择 > 传统 virtual.mp4。
+     * 命名源走 /v/<源名>，传统默认走 /v。 */
     private static String effectiveSource(String pkg) {
         VcamConfig c = config();
-        String url = c.serverUrl;
-        if (url != null && url.startsWith("http")) {
-            return url;
+        String url = c.serverUrl != null && c.serverUrl.startsWith("http")
+                ? c.serverUrl : ConfigStore.SERVER_URL + "/v";
+
+        // 1) 应用显式绑定
+        String named = c.app(pkg).source;
+        String via = pick(named, c, url);
+        if (via != null) {
+            return via;
+        }
+        // 2) 全局默认源选择
+        via = pick(c.defaultSourceName, c, url);
+        if (via != null) {
+            return via;
+        }
+        // 3) 传统默认（服务可用则 /v，否则文件路径）
+        if (url.startsWith("http")) {
+            return c.serverUrl != null && c.serverUrl.startsWith("http") ? c.serverUrl : url;
         }
         return c.sourceFor(pkg);
     }
 
+    private static String pick(String name, VcamConfig c, String url) {
+        if (name == null || name.length() == 0) {
+            return null;
+        }
+        VcamConfig.SourceEntry se = c.resolveSource(name);
+        if (se == null) {
+            return null;
+        }
+        if ("rtmp".equals(se.type)) {
+            return se.path;   // P2.2 由流源处理
+        }
+        try {
+            return url + "/" + java.net.URLEncoder.encode(name, "UTF-8");
+        } catch (Throwable t) {
+            return url;
+        }
+    }
+
+    /** 兼容旧调用：源句柄的文件/http 路径（FD 通道时返回 null）。 */
     public static String sourcePath(String pkg) {
-        return sSourceReady != null ? sSourceReady : config().sourceFor(pkg);
+        SourceHandle h = sourceHandle(pkg);
+        return h != null ? h.path : null;
     }
 
     public static boolean muteFor(String pkg) {

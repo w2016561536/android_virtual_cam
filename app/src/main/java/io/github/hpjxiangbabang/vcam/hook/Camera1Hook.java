@@ -5,6 +5,7 @@ import android.hardware.Camera;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.os.ParcelFileDescriptor;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
@@ -191,14 +192,27 @@ public final class Camera1Hook {
     }
 
     private static void startSession(Cam1Session s, String pkg) {
-        String path = HookMain.sourcePath(pkg);
+        HookMain.SourceHandle h = HookMain.sourceHandle(pkg);
+        if (h == null) {
+            return;
+        }
+        log(pkg, "startPreview 源=" + h.display);
         boolean mute = HookMain.muteFor(pkg);
-        s.ensurePlayers(path, mute);
-        // 缓冲源：等回调拿到真实目标宽高后再 setTargetSize，这里先以原尺寸起流
-        if (s.bufferSource == null) {
+        boolean sourceChanged = s.handle == null || !s.handle.display.equals(h.display);
+        s.handle = h;
+        if (sourceChanged) {
+            if (s.bufferSource != null) {
+                try {
+                    s.bufferSource.stop();
+                } catch (Throwable ignored) {
+                }
+                s.bufferSource = null;
+            }
             FrameBuffer buffer = new FrameBuffer();
             s.buffer = buffer;
-            s.bufferSource = new VideoFrameSource(path, buffer);
+            s.bufferSource = h.pfd != null
+                    ? new VideoFrameSource(h.pfd, buffer)
+                    : new VideoFrameSource(h.path, buffer);
             s.bufferSource.setErrorListener(new VideoFrameSource.ErrorListener() {
                 @Override
                 public void onError(Throwable t, String stage) {
@@ -206,6 +220,12 @@ public final class Camera1Hook {
                 }
             });
             s.bufferSource.start();
+            s.lastPlayerHash = -1; // 强制播放器随源重启
+        }
+        if (h.pfd != null) {
+            s.ensurePlayersFd(h, mute);
+        } else {
+            s.ensurePlayers(h.path, mute);
         }
     }
 
@@ -335,8 +355,9 @@ public final class Camera1Hook {
         int previewH;
         boolean firstFrameDone;
         byte[] lastSent;
-        int lastPlayerPathHash;
+        int lastPlayerHash = -1;
         final java.util.Set<String> hookedCallbacks = new java.util.HashSet<>();
+        HookMain.SourceHandle handle;
 
         Cam1Session(String pkg) {
             this.pkg = pkg;
@@ -344,15 +365,62 @@ public final class Camera1Hook {
 
         void ensurePlayers(String path, boolean mute) {
             int hash = path.hashCode();
-            if (player == null || lastPlayerPathHash != hash) {
-                releasePlayers();
-                // 关键：视频渲染到目标 App 原来的纹理面（旧版语义），不是假纹理
-                origSurface = origTexture != null ? new Surface(origTexture) : null;
-                player = newPlayer(path, origSurface, mute);
-                holderPlayer = newPlayer(path,
-                        holder != null ? holder.getSurface() : null, mute);
-                lastPlayerPathHash = hash;
+            if (player != null && lastPlayerHash == hash) {
+                return; // 已在播同一源
             }
+            releasePlayers();
+            // 关键：视频渲染到目标 App 原来的纹理面（旧版语义），不是假纹理
+            origSurface = origTexture != null ? new Surface(origTexture) : null;
+            player = newPlayer(path, origSurface, mute);
+            holderPlayer = newPlayer(path,
+                    holder != null ? holder.getSurface() : null, mute);
+            lastPlayerHash = hash;
+        }
+
+        void ensurePlayersFd(HookMain.SourceHandle h, boolean mute) {
+            int hash = h.display.hashCode();
+            if (player != null && lastPlayerHash == hash) {
+                return;
+            }
+            releasePlayers();
+            origSurface = origTexture != null ? new Surface(origTexture) : null;
+            player = newPlayerFd(h.pfd, origSurface, mute);
+            holderPlayer = newPlayerFd(h.pfd,
+                    holder != null ? holder.getSurface() : null, mute);
+            lastPlayerHash = hash;
+        }
+
+        private MediaPlayer newPlayerFd(ParcelFileDescriptor pfd, Surface surface, boolean mute) {
+            if (surface == null || !surface.isValid()) {
+                return null;
+            }
+            MediaPlayer mp = new MediaPlayer();
+            try {
+                mp.setSurface(surface);
+                if (mute) {
+                    mp.setVolume(0f, 0f);
+                }
+                mp.setLooping(true);
+                mp.setDataSource(pfd.getFileDescriptor());
+                mp.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                    @Override
+                    public void onPrepared(MediaPlayer mediaPlayer) {
+                        try {
+                            mediaPlayer.start();
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                });
+                mp.prepare();
+            } catch (Throwable t) {
+                log(pkg, "播放器创建失败(FD):" + t);
+                try {
+                    mp.release();
+                } catch (Throwable ignored) {
+                }
+                return null;
+            }
+            return mp;
         }
 
         private MediaPlayer newPlayer(String path, Surface surface, boolean mute) {

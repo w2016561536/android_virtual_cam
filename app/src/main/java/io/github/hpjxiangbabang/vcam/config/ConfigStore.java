@@ -26,6 +26,10 @@ public final class ConfigStore {
     public static final String CONFIG_NAME = "config.json";
     public static final String DIR_PUBLIC = "DCIM/Camera1";
 
+    /** 源服务固定端口：目标 App 无须读配置即可发现服务。被占时服务端回落随机端口。 */
+    public static final int SERVER_PORT = 37199;
+    public static final String SERVER_URL = "http://127.0.0.1:" + SERVER_PORT;
+
     private ConfigStore() {
     }
 

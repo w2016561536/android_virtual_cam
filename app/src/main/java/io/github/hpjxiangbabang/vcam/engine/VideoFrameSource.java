@@ -4,6 +4,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.os.ParcelFileDescriptor;
 import android.view.Surface;
 
 import java.io.File;
@@ -34,6 +35,7 @@ public final class VideoFrameSource {
     }
 
     private final String mPath;
+    private final ParcelFileDescriptor mPfd;   // 非空 => provider FD 通道
     private final Surface mRenderSurface;   // null => buffer 模式
     private final FrameBuffer mBuffer;      // buffer 模式输出；render 模式为 null
     private final AtomicBoolean mFitDirty;  // 目标尺寸变化标记（buffer 模式）
@@ -46,6 +48,7 @@ public final class VideoFrameSource {
 
     public VideoFrameSource(String videoPath, Surface renderSurface) {
         mPath = videoPath;
+        mPfd = null;
         mRenderSurface = renderSurface;
         mBuffer = null;
         mFitDirty = null;
@@ -53,6 +56,25 @@ public final class VideoFrameSource {
 
     public VideoFrameSource(String videoPath, FrameBuffer buffer) {
         mPath = videoPath;
+        mPfd = null;
+        mRenderSurface = null;
+        mBuffer = buffer;
+        mFitDirty = new AtomicBoolean(false);
+    }
+
+    /** provider FD 通道（渲染模式）。FD 生命周期由调用方管理。 */
+    public VideoFrameSource(ParcelFileDescriptor pfd, Surface renderSurface) {
+        mPath = null;
+        mPfd = pfd;
+        mRenderSurface = renderSurface;
+        mBuffer = null;
+        mFitDirty = null;
+    }
+
+    /** provider FD 通道（缓冲模式）。 */
+    public VideoFrameSource(ParcelFileDescriptor pfd, FrameBuffer buffer) {
+        mPath = null;
+        mPfd = pfd;
         mRenderSurface = null;
         mBuffer = buffer;
         mFitDirty = new AtomicBoolean(false);
@@ -114,14 +136,18 @@ public final class VideoFrameSource {
         String mime = null;
         MediaFormat format = null;
         try {
-            boolean isUrl = mPath.startsWith("http");
-            File f = isUrl ? null : new File(mPath);
-            if (!isUrl && (!f.exists() || !f.isFile() || f.length() < 1024)) {
+            boolean isUrl = mPath != null && mPath.startsWith("http");
+            File f = (!isUrl && mPath != null) ? new File(mPath) : null;
+            if (mPfd == null && !isUrl && (!f.exists() || !f.isFile() || f.length() < 1024)) {
                 report(new IllegalStateException("视频不存在或过小: " + mPath), "open");
                 return;
             }
             extractor = new MediaExtractor();
-            extractor.setDataSource(mPath);
+            if (mPfd != null) {
+                extractor.setDataSource(mPfd.getFileDescriptor());
+            } else {
+                extractor.setDataSource(mPath);
+            }
             int track = -1;
             for (int i = 0; i < extractor.getTrackCount(); i++) {
                 MediaFormat fm = extractor.getTrackFormat(i);

@@ -6,11 +6,12 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.InputConfiguration;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.SessionConfiguration;
+import android.graphics.SurfaceTexture;
 import android.media.ImageReader;
 import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Handler;
-import android.graphics.SurfaceTexture;
+import android.os.ParcelFileDescriptor;
 import android.view.Surface;
 
 import java.util.Arrays;
@@ -391,19 +392,23 @@ public final class Camera2Hook {
         }
 
         void startOutputs(String pkg) {
-            String path = HookMain.sourcePath(pkg);
+            HookMain.SourceHandle h = HookMain.sourceHandle(pkg);
+            if (h == null) {
+                return;
+            }
             boolean mute = HookMain.muteFor(pkg);
-            int hash = path.hashCode();
-            boolean restart = hash != lastPathHash;
+            boolean restart = h.display.hashCode() != lastPathHash;
             if (restart) {
                 stopOutputs();
-                lastPathHash = hash;
+                lastPathHash = h.display.hashCode();
             }
             // reader 面（ImageReader/JPEG/YUV）：codec 渲染
             if (readerSurface != null && readerSurface.isValid()) {
                 if (readerSrc == null || restart) {
                     stopReader(readerSrc);
-                    readerSrc = new VideoFrameSource(path, readerSurface);
+                    readerSrc = h.pfd != null
+                            ? new VideoFrameSource(h.pfd, readerSurface)
+                            : new VideoFrameSource(h.path, readerSurface);
                     readerSrc.setErrorListener(new VideoFrameSource.ErrorListener() {
                         @Override
                         public void onError(Throwable t, String stage) {
@@ -416,7 +421,9 @@ public final class Camera2Hook {
             if (readerSurface1 != null && readerSurface1.isValid()) {
                 if (readerSrc1 == null || restart) {
                     stopReader(readerSrc1);
-                    readerSrc1 = new VideoFrameSource(path, readerSurface1);
+                    readerSrc1 = h.pfd != null
+                            ? new VideoFrameSource(h.pfd, readerSurface1)
+                            : new VideoFrameSource(h.path, readerSurface1);
                     readerSrc1.start();
                 }
             }
@@ -424,15 +431,52 @@ public final class Camera2Hook {
             if (previewSurface != null && previewSurface.isValid()) {
                 if (previewPlayer == null || restart) {
                     stopPlayer(previewPlayer);
-                    previewPlayer = newPlayer(path, previewSurface, mute);
+                    previewPlayer = h.pfd != null
+                            ? newPlayerFd(h.pfd, previewSurface, mute)
+                            : newPlayer(h.path, previewSurface, mute);
                 }
             }
             if (previewSurface1 != null && previewSurface1.isValid()) {
                 if (previewPlayer1 == null || restart) {
                     stopPlayer(previewPlayer1);
-                    previewPlayer1 = newPlayer(path, previewSurface1, mute);
+                    previewPlayer1 = h.pfd != null
+                            ? newPlayerFd(h.pfd, previewSurface1, mute)
+                            : newPlayer(h.path, previewSurface1, mute);
                 }
             }
+        }
+
+        private MediaPlayer newPlayerFd(ParcelFileDescriptor pfd, Surface surface, boolean mute) {
+            if (surface == null || !surface.isValid()) {
+                return null;
+            }
+            MediaPlayer mp = new MediaPlayer();
+            try {
+                mp.setSurface(surface);
+                if (mute) {
+                    mp.setVolume(0f, 0f);
+                }
+                mp.setLooping(true);
+                mp.setDataSource(pfd.getFileDescriptor());
+                mp.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                    @Override
+                    public void onPrepared(MediaPlayer mediaPlayer) {
+                        try {
+                            mediaPlayer.start();
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                });
+                mp.prepare();
+            } catch (Throwable t) {
+                log(pkg, "preview 播放器失败(FD):" + t);
+                try {
+                    mp.release();
+                } catch (Throwable ignored) {
+                }
+                return null;
+            }
+            return mp;
         }
 
         private MediaPlayer newPlayer(String path, Surface surface, boolean mute) {

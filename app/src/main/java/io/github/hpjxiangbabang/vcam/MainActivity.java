@@ -4,20 +4,27 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.view.View;
 import android.widget.CompoundButton;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 
 import io.github.hpjxiangbabang.vcam.config.ConfigStore;
 import io.github.hpjxiangbabang.vcam.config.VcamConfig;
 import io.github.hpjxiangbabang.vcam.engine.FrameFitter;
+import io.github.hpjxiangbabang.vcam.server.ImageVideoEncoder;
 
 /**
  * 管理端（P1）：开关全部落到 config.json，不再创建 jpg 标记文件。
@@ -76,6 +83,19 @@ public class MainActivity extends Activity {
             AppLog.clear();
             show_log();
         });
+
+        // P2.1 源库
+        findViewById(R.id.btn_add_video).setOnClickListener(v -> {
+            if (requirePerm()) return;
+            addSourceDialog("video");
+        });
+        findViewById(R.id.btn_add_image).setOnClickListener(v -> {
+            if (requirePerm()) return;
+            addSourceDialog("image");
+        });
+        findViewById(R.id.btn_del_source).setOnClickListener(v -> deleteSourceDialog());
+        findViewById(R.id.btn_bind_app).setOnClickListener(v -> bindAppDialog());
+        findViewById(R.id.btn_default_source).setOnClickListener(v -> defaultSourceDialog());
 
         loadConfig();
 
@@ -189,6 +209,7 @@ public class MainActivity extends Activity {
         fit_inside_switch.setChecked(config.fitMode == VcamConfig.FIT_INSIDE);
         force_show_switch.setChecked(
                 new File(Environment.getExternalStorageDirectory(), "DCIM/Camera1/force_show.jpg").exists());
+        refreshSourcesSummary();
     }
 
     private void save() {
@@ -236,5 +257,186 @@ public class MainActivity extends Activity {
         }
         String text = AppLog.read();
         log_view.setText(text.length() == 0 ? getString(R.string.log_empty) : text);
+    }
+
+    // ==================== P2.1 源库与应用绑定 ====================
+
+    private void refreshSourcesSummary() {
+        TextView tv = findViewById(R.id.sources_summary);
+        if (tv == null) {
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("默认源: ");
+        if (config.defaultSourceName != null && config.defaultSourceName.length() > 0) {
+            sb.append(config.defaultSourceName);
+        } else {
+            sb.append(config.defaultSource);
+        }
+        sb.append('\n');
+        if (config.sources.isEmpty()) {
+            sb.append("源库为空\n");
+        } else {
+            sb.append("源库:\n");
+            for (java.util.Map.Entry<String, VcamConfig.SourceEntry> e : config.sources.entrySet()) {
+                sb.append("  • ").append(e.getKey())
+                        .append(" [").append(e.getValue().type).append("] ")
+                        .append(e.getValue().path).append('\n');
+            }
+        }
+        if (config.apps.isEmpty()) {
+            sb.append("应用绑定: 无（全部走默认源）");
+        } else {
+            sb.append("应用绑定:");
+            for (java.util.Map.Entry<String, VcamConfig.AppEntry> e : config.apps.entrySet()) {
+                sb.append("\n  • ").append(e.getKey()).append(" → ")
+                        .append(e.getValue().source == null || e.getValue().source.length() == 0
+                                ? "默认源" : e.getValue().source);
+            }
+        }
+        tv.setText(sb.toString());
+    }
+
+    private void addSourceDialog(final String type) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        box.setPadding(pad, pad, pad, 0);
+        final EditText name = new EditText(this);
+        name.setHint("源名称（唯一标识）");
+        box.addView(name);
+        final EditText path = new EditText(this);
+        path.setHint("video: /sdcard/.../*.mp4   image: /sdcard/.../*.jpg");
+        box.addView(path);
+        new AlertDialog.Builder(this)
+                .setTitle("video".equals(type) ? "添加视频源" : "添加图片源")
+                .setView(box)
+                .setPositiveButton(R.string.positive, (d, w) -> {
+                    String n = name.getText().toString().trim();
+                    String p = path.getText().toString().trim();
+                    if (n.length() == 0 || p.length() == 0 || "virtual.mp4".equals(n)) {
+                        Toast.makeText(this, "名称与路径不能为空", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if ("image".equals(type)) {
+                        addImageSource(n, p);
+                    } else {
+                        VcamConfig.SourceEntry e = new VcamConfig.SourceEntry();
+                        e.type = "video";
+                        e.path = p;
+                        config.sources.put(n, e);
+                        save();
+                    }
+                })
+                .setNegativeButton(R.string.negative, null)
+                .show();
+    }
+
+    /** 图片源：只记录路径，循环 mp4 由源服务首次访问时懒生成。 */
+    private void addImageSource(final String name, final String imagePath) {
+        VcamConfig.SourceEntry e = new VcamConfig.SourceEntry();
+        e.type = "image";
+        e.path = imagePath;
+        config.sources.put(name, e);
+        save();
+        Toast.makeText(this, "已添加，首次使用时自动生成缓存", Toast.LENGTH_SHORT).show();
+    }
+
+    private void deleteSourceDialog() {
+        if (config.sources.isEmpty()) {
+            Toast.makeText(this, "源库为空", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final String[] names = config.sources.keySet().toArray(new String[0]);
+        new AlertDialog.Builder(this)
+                .setTitle("删除源")
+                .setItems(names, (d, which) -> {
+                    String n = names[which];
+                    config.sources.remove(n);
+                    for (VcamConfig.AppEntry e : config.apps.values()) {
+                        if (n.equals(e.source)) {
+                            e.source = null;
+                        }
+                    }
+                    save();
+                })
+                .setNegativeButton(R.string.negative, null)
+                .show();
+    }
+
+    /** 全局默认源开关：应用绑定 > 默认源选择 > 传统 virtual.mp4。 */
+    private void defaultSourceDialog() {
+        java.util.List<String> options = new java.util.ArrayList<>();
+        options.add("传统 virtual.mp4");
+        options.addAll(config.sources.keySet());
+        final String[] items = options.toArray(new String[0]);
+        int checked = 0;
+        if (config.defaultSourceName != null && config.defaultSourceName.length() > 0) {
+            int idx = options.indexOf(config.defaultSourceName);
+            checked = Math.max(0, idx);
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("选择默认源")
+                .setSingleChoiceItems(items, checked, (d, which) -> {
+                    config.defaultSourceName = which == 0 ? "" : items[which];
+                    save();
+                    d.dismiss();
+                })
+                .setNegativeButton(R.string.negative, null)
+                .show();
+    }
+
+    private void bindAppDialog() {
+        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_MAIN);
+        intent.addCategory(android.content.Intent.CATEGORY_LAUNCHER);
+        java.util.List<android.content.pm.ResolveInfo> apps =
+                getPackageManager().queryIntentActivities(intent, 0);
+        java.util.TreeMap<String, String> map = new java.util.TreeMap<>();
+        for (android.content.pm.ResolveInfo ri : apps) {
+            String pkg = ri.activityInfo.packageName;
+            if (getPackageName().equals(pkg)) {
+                continue;
+            }
+            map.put(pkg, ri.loadLabel(getPackageManager()).toString());
+        }
+        if (map.isEmpty()) {
+            Toast.makeText(this, "没有可绑定的应用", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final String[] pkgs = map.keySet().toArray(new String[0]);
+        final String[] display = new String[pkgs.length];
+        for (int i = 0; i < pkgs.length; i++) {
+            display[i] = map.get(pkgs[i]) + " (" + pkgs[i] + ")";
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("选择应用")
+                .setItems(display, (d, which) -> chooseSourceForApp(pkgs[which]))
+                .setNegativeButton(R.string.negative, null)
+                .show();
+    }
+
+    private void chooseSourceForApp(final String pkg) {
+        java.util.List<String> options = new java.util.ArrayList<>();
+        options.add("默认源");
+        options.addAll(config.sources.keySet());
+        final String[] items = options.toArray(new String[0]);
+        VcamConfig.AppEntry cur = config.app(pkg);
+        int checked = 0;
+        if (cur.source != null) {
+            int idx = options.indexOf(cur.source);
+            checked = Math.max(0, idx);
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("绑定源 → " + pkg)
+                .setSingleChoiceItems(items, checked, (d, which) -> {
+                    VcamConfig.AppEntry e = config.app(pkg);
+                    e.source = which == 0 ? null : items[which];
+                    e.enabled = true;
+                    config.apps.put(pkg, e);
+                    save();
+                    d.dismiss();
+                })
+                .setNegativeButton(R.string.negative, null)
+                .show();
     }
 }

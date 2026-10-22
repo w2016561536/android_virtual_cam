@@ -5,6 +5,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.IBinder;
 
@@ -99,7 +101,12 @@ public class SourceServerService extends Service {
 
     private void serve() {
         try {
-            mServerSocket = new ServerSocket(0, 8, InetAddress.getLoopbackAddress());
+            // 固定端口优先：hook 端无须读配置即可发现服务（作用域存储下读不到 config.json）
+            try {
+                mServerSocket = new ServerSocket(ConfigStore.SERVER_PORT, 8, InetAddress.getLoopbackAddress());
+            } catch (Throwable t) {
+                mServerSocket = new ServerSocket(0, 8, InetAddress.getLoopbackAddress());
+            }
             sPort = mServerSocket.getLocalPort();
             publishUrl();
             while (mRunning) {
@@ -127,16 +134,43 @@ public class SourceServerService extends Service {
     }
 
     private void handle(Socket socket) {
+        String peer = "unknown";
         try {
+            peer = socket.getRemoteSocketAddress() != null ? socket.getRemoteSocketAddress().toString() : "?";
+        } catch (Throwable ignored) {
+        }
+        try {
+            log("conn from " + peer);
             socket.setSoTimeout(8000);
             InputStream in = socket.getInputStream();
             String requestLine = readLine(in);
             if (requestLine == null || !requestLine.startsWith("GET ")) {
+                log("bad request line: " + requestLine);
                 socket.close();
                 return;
             }
             String path = requestLine.split(" ")[1];
             path = URLDecoder.decode(path, "UTF-8");
+            // 配置端点：目标 App 拿配置的唯一可靠通道（绕开作用域存储）
+            if (path.equals("/config")) {
+                File cfg = ConfigStore.publicConfigFile();
+                byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+                if (cfg.isFile()) {
+                    body = java.nio.file.Files.readAllBytes(cfg.toPath());
+                }
+                StringBuilder sb = new StringBuilder();
+                sb.append("HTTP/1.1 200 OK\r\n");
+                sb.append("Content-Type: application/json\r\n");
+                sb.append("Content-Length: ").append(body.length).append("\r\n");
+                sb.append("Connection: close\r\n\r\n");
+                OutputStream out = socket.getOutputStream();
+                out.write(sb.toString().getBytes(StandardCharsets.ISO_8859_1));
+                out.write(body);
+                out.flush();
+                socket.close();
+                log("config served (" + body.length + "B)");
+                return;
+            }
             // /v 或 /v/<文件名>；文件名用于以后多源切换
             String name = "virtual.mp4";
             if (path.startsWith("/v/")) {
@@ -146,27 +180,20 @@ public class SourceServerService extends Service {
                 return;
             }
 
-            // 只允许安全文件名，文件从公共 Camera1 目录取
+            // 只允许安全文件名
             if (name.contains("..") || name.contains("/") || name.contains("\\")) {
                 respond(socket, 403, "text/plain", "forbidden".getBytes(StandardCharsets.UTF_8), null);
                 return;
             }
-            File file = new File(ConfigStore.publicDir(), name);
-            if (!file.isFile()) {
-                // 回落：config 里的 default_source
-                VcamConfig c = ConfigStore.loadForManager();
-                String ds = c.defaultSource;
-                if (ds != null && ds.length() > 0) {
-                    File f2 = new File(ds);
-                    if (f2.isFile()) {
-                        file = f2;
-                    }
-                }
-            }
-            if (!file.isFile()) {
+
+            // 按源名解析（源库/懒生成/默认源兜底）
+            File file = SourceResolver.resolve(this, name);
+            if (file == null) {
+                log("serve 404 name=" + name);
                 respond(socket, 404, "text/plain", "no source".getBytes(StandardCharsets.UTF_8), null);
                 return;
             }
+            log("serve " + name + " -> " + file.getAbsolutePath());
 
             long total = file.length();
             long from = 0;
@@ -229,10 +256,44 @@ public class SourceServerService extends Service {
             out.flush();
             socket.close();
         } catch (Throwable t) {
+            log("handle 异常[" + peer + "]:" + t);
             try {
                 socket.close();
             } catch (Throwable ignored) {
             }
+        }
+    }
+
+    private String generateImageCache(String imagePath) {
+        try {
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(imagePath, o);
+            if (o.outWidth <= 0) {
+                log("图片解码失败: " + imagePath);
+                return null;
+            }
+            BitmapFactory.Options b = new BitmapFactory.Options();
+            int s = 1;
+            while (Math.max(o.outWidth, o.outHeight) / (s * 2) >= 1280) {
+                s *= 2;
+            }
+            b.inSampleSize = s;
+            Bitmap bmp = BitmapFactory.decodeFile(imagePath, b);
+            if (bmp == null) {
+                return null;
+            }
+            File dir = new File(getExternalFilesDir(null), "Camera1/imgcache");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            File cache = new File(dir, "img_" + Integer.toHexString(imagePath.hashCode()) + ".mp4");
+            File out = ImageVideoEncoder.encode(bmp, cache);
+            bmp.recycle();
+            return out != null ? out.getAbsolutePath() : null;
+        } catch (Throwable t) {
+            log("generateImageCache: " + t);
+            return null;
         }
     }
 
