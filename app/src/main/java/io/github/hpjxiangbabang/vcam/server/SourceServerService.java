@@ -9,6 +9,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.ParcelFileDescriptor;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -186,16 +187,14 @@ public class SourceServerService extends Service {
                 return;
             }
 
-            // 按源名解析（源库/懒生成/默认源兜底）
-            File file = SourceResolver.resolve(this, name);
-            if (file == null) {
+            // 按源名解析（源库/懒生成/默认源兜底），统一 FD 出口（支持 content:// URI）
+            ParcelFileDescriptor srcPfd = SourceResolver.openFd(this, name);
+            if (srcPfd == null) {
                 log("serve 404 name=" + name);
                 respond(socket, 404, "text/plain", "no source".getBytes(StandardCharsets.UTF_8), null);
                 return;
             }
-            log("serve " + name + " -> " + file.getAbsolutePath());
-
-            long total = file.length();
+            long total = srcPfd.getStatSize();
             long from = 0;
             long to = total - 1;
             String range = readHeader(in, "Range:");
@@ -233,8 +232,15 @@ public class SourceServerService extends Service {
             out.write(sb.toString().getBytes(StandardCharsets.ISO_8859_1));
             out.flush();
 
-            InputStream fis = new BufferedInputStream(new java.io.FileInputStream(file));
-            fis.skip(from);
+            InputStream fis = new BufferedInputStream(new ParcelFileDescriptor.AutoCloseInputStream(srcPfd));
+            if (from > 0) {
+                long skipped = fis.skip(from);
+                if (skipped < from) {
+                    fis.close();
+                    respond(socket, 416, "text/plain", "bad range".getBytes(StandardCharsets.UTF_8), null);
+                    return;
+                }
+            }
             byte[] buf = new byte[65536];
             long remain = to - from + 1;
             try {

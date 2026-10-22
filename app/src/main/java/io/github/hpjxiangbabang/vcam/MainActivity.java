@@ -3,6 +3,7 @@ package io.github.hpjxiangbabang.vcam;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -84,15 +85,9 @@ public class MainActivity extends Activity {
             show_log();
         });
 
-        // P2.1 源库
-        findViewById(R.id.btn_add_video).setOnClickListener(v -> {
-            if (requirePerm()) return;
-            addSourceDialog("video");
-        });
-        findViewById(R.id.btn_add_image).setOnClickListener(v -> {
-            if (requirePerm()) return;
-            addSourceDialog("image");
-        });
+        // P2.1 源库（SAF 文件选择器，MIME 预设过滤）
+        findViewById(R.id.btn_add_video).setOnClickListener(v -> pickSource("video"));
+        findViewById(R.id.btn_add_image).setOnClickListener(v -> pickSource("image"));
         findViewById(R.id.btn_del_source).setOnClickListener(v -> deleteSourceDialog());
         findViewById(R.id.btn_bind_app).setOnClickListener(v -> bindAppDialog());
         findViewById(R.id.btn_default_source).setOnClickListener(v -> defaultSourceDialog());
@@ -261,6 +256,111 @@ public class MainActivity extends Activity {
 
     // ==================== P2.1 源库与应用绑定 ====================
 
+    private static final int REQ_PICK_VIDEO = 101;
+    private static final int REQ_PICK_IMAGE = 102;
+    private String pendingSourceType;
+
+    /** SAF 文件选择器：MIME 预设过滤，杜绝选错格式。 */
+    private void pickSource(String type) {
+        pendingSourceType = type;
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("video".equals(type) ? "video/*" : "image/*");
+        try {
+            startActivityForResult(i, "video".equals(type) ? REQ_PICK_VIDEO : REQ_PICK_IMAGE);
+        } catch (Throwable t) {
+            Toast.makeText(this, "无法打开文件选择器: " + t, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            return;
+        }
+        final String type = requestCode == REQ_PICK_VIDEO ? "video" : "image";
+        android.net.Uri uri = data.getData();
+        String name = displayName(uri);
+        if (name == null || name.length() == 0) {
+            name = (type.equals("video") ? "视频_" : "图片_") + System.currentTimeMillis();
+        }
+        String base = name.replaceAll("[/\\\\:*?\"<>|]", "_");
+        String key = base;
+        int k = 2;
+        while (config.sources.containsKey(key)) {
+            key = base + "_" + k++;
+        }
+        VcamConfig.SourceEntry e = new VcamConfig.SourceEntry();
+        e.type = type;
+
+        // 持久化授权成功 → 存 content URI；失败 → 当场复制进模块私有目录（一次成本，
+        // 之后完全脱离 SAF 授权体系，hook 端经 Provider FD 稳定读取）
+        boolean persisted = false;
+        try {
+            getContentResolver().takePersistableUriPermission(uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            persisted = true;
+        } catch (Throwable ignored) {
+        }
+        if (persisted) {
+            e.path = uri.toString();
+        } else {
+            try {
+                File baseDir = new File(getExternalFilesDir(null), "Camera1");
+                if (!baseDir.exists()) {
+                    baseDir.mkdirs();
+                }
+                File dst = new File(baseDir, "src_" + System.currentTimeMillis() + "_" + base);
+                java.io.InputStream in = getContentResolver().openInputStream(uri);
+                java.io.FileOutputStream out = new java.io.FileOutputStream(dst);
+                byte[] buf = new byte[65536];
+                long total = 0;
+                int n;
+                while ((n = in.read(buf)) != -1) {
+                    out.write(buf, 0, n);
+                    total += n;
+                }
+                in.close();
+                out.close();
+                if (total < 1024) {
+                    Toast.makeText(this, "复制源文件失败", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                e.path = dst.getAbsolutePath();
+                Toast.makeText(this, "已复制到模块目录(" + (total / 1024) + "KB)", Toast.LENGTH_SHORT).show();
+            } catch (Throwable t) {
+                Toast.makeText(this, "复制源文件异常: " + t, Toast.LENGTH_LONG).show();
+                return;
+            }
+        }
+        config.sources.put(key, e);
+        save();
+        if ("image".equals(type)) {
+            Toast.makeText(this, "已添加，首次使用时自动生成缓存", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private String displayName(android.net.Uri uri) {
+        try {
+            android.database.Cursor c = getContentResolver().query(uri, null, null, null, null);
+            if (c != null) {
+                try {
+                    if (c.moveToFirst()) {
+                        int idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                        if (idx >= 0) {
+                            return c.getString(idx);
+                        }
+                    }
+                } finally {
+                    c.close();
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
     private void refreshSourcesSummary() {
         TextView tv = findViewById(R.id.sources_summary);
         if (tv == null) {
@@ -295,51 +395,6 @@ public class MainActivity extends Activity {
             }
         }
         tv.setText(sb.toString());
-    }
-
-    private void addSourceDialog(final String type) {
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
-        box.setPadding(pad, pad, pad, 0);
-        final EditText name = new EditText(this);
-        name.setHint("源名称（唯一标识）");
-        box.addView(name);
-        final EditText path = new EditText(this);
-        path.setHint("video: /sdcard/.../*.mp4   image: /sdcard/.../*.jpg");
-        box.addView(path);
-        new AlertDialog.Builder(this)
-                .setTitle("video".equals(type) ? "添加视频源" : "添加图片源")
-                .setView(box)
-                .setPositiveButton(R.string.positive, (d, w) -> {
-                    String n = name.getText().toString().trim();
-                    String p = path.getText().toString().trim();
-                    if (n.length() == 0 || p.length() == 0 || "virtual.mp4".equals(n)) {
-                        Toast.makeText(this, "名称与路径不能为空", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    if ("image".equals(type)) {
-                        addImageSource(n, p);
-                    } else {
-                        VcamConfig.SourceEntry e = new VcamConfig.SourceEntry();
-                        e.type = "video";
-                        e.path = p;
-                        config.sources.put(n, e);
-                        save();
-                    }
-                })
-                .setNegativeButton(R.string.negative, null)
-                .show();
-    }
-
-    /** 图片源：只记录路径，循环 mp4 由源服务首次访问时懒生成。 */
-    private void addImageSource(final String name, final String imagePath) {
-        VcamConfig.SourceEntry e = new VcamConfig.SourceEntry();
-        e.type = "image";
-        e.path = imagePath;
-        config.sources.put(name, e);
-        save();
-        Toast.makeText(this, "已添加，首次使用时自动生成缓存", Toast.LENGTH_SHORT).show();
     }
 
     private void deleteSourceDialog() {

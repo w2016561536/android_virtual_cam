@@ -4,65 +4,116 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.ParcelFileDescriptor;
 
 import java.io.File;
+import java.io.InputStream;
 
 import io.github.hpjxiangbabang.vcam.config.ConfigStore;
 import io.github.hpjxiangbabang.vcam.config.VcamConfig;
 
 /**
- * 源名 → 实际文件 的统一解析（服务端与 MediaProvider 共用）。
- * image 源在首次访问时懒生成循环 mp4 缓存。
+ * 源名 → 可读媒体 的统一解析（MediaProvider 与源服务共用）。
+ *
+ * path 支持四种形态：
+ *   content://…（SAF 选择器 + 持久化 URI 权限，模块进程读取）
+ *   /sdcard/…（普通文件）
+ *   http(s)://（暂由 http 通道处理，这里不解析）
+ *   rtmp://（P2.2 流源，这里不解析）
+ *
+ * image 源首次访问时懒生成循环 mp4 缓存。
+ * 统一出口 openFd()：返回只读 ParcelFileDescriptor，喂 MediaPlayer/MediaExtractor。
  */
 public final class SourceResolver {
 
     private SourceResolver() {
     }
 
-    public static File resolve(Context context, String name) {
+    /** 名字合法性与源库解析。 */
+    private static VcamConfig.SourceEntry lookup(Context context, String name) {
         if (name == null || name.length() == 0 || name.contains("..")
                 || name.contains("/") || name.contains("\\")) {
             return null;
         }
         VcamConfig c = ConfigStore.loadForManager();
-        VcamConfig.SourceEntry se = c.resolveSource(name);
-        File file = null;
-        if (se != null) {
-            if ("image".equals(se.type)) {
-                if (se.cache == null || !(new File(se.cache).isFile())) {
-                    se.cache = generateImageCache(context, se.path);
-                    if (se.cache != null) {
-                        c.sources.put(name, se);
-                        ConfigStore.saveForManager(c);
-                    }
-                }
-                if (se.cache != null) {
-                    file = new File(se.cache);
-                }
-            } else if (!"rtmp".equals(se.type)) {
-                file = new File(se.path);
-            }
-        }
-        if (file == null) {
-            File pub = new File(ConfigStore.publicDir(), name);
-            if (pub.isFile()) {
-                file = pub;
-            }
-        }
-        if ((file == null || !file.isFile()) && c.defaultSource != null && c.defaultSource.length() > 0) {
-            File ds = new File(c.defaultSource);
-            if (ds.isFile()) {
-                file = ds;
-            }
-        }
-        return file != null && file.isFile() ? file : null;
+        return c.resolveSource(name);
     }
 
-    private static String generateImageCache(Context context, String imagePath) {
+    /** 统一出口：打开源为只读 FD。找不到返回 null。 */
+    public static ParcelFileDescriptor openFd(Context context, String name) {
+        VcamConfig.SourceEntry se = lookup(context, name);
+        ParcelFileDescriptor pfd = null;
+        if (se != null) {
+            if ("image".equals(se.type)) {
+                String cache = ensureImageCache(context, se);
+                if (cache != null) {
+                    pfd = openFile(new File(cache));
+                }
+            } else if ("video".equals(se.type)) {
+                pfd = openAny(context, se.path);
+            }
+            // rtmp：P2.2
+        }
+        if (pfd == null) {
+            File pub = new File(ConfigStore.publicDir(), name);
+            if (pub.isFile()) {
+                pfd = openFile(pub);
+            }
+        }
+        if (pfd == null) {
+            VcamConfig c = ConfigStore.loadForManager();
+            if (c.defaultSource != null && c.defaultSource.length() > 0) {
+                pfd = openAny(context, c.defaultSource);
+            }
+        }
+        return pfd;
+    }
+
+    /** 按路径形态打开：content URI → ContentResolver；普通文件 → 直接打开。 */
+    public static ParcelFileDescriptor openAny(Context context, String path) {
+        if (path == null || path.length() == 0) {
+            return null;
+        }
+        try {
+            if (path.startsWith("content:")) {
+                return context.getContentResolver()
+                        .openFileDescriptor(Uri.parse(path), "r");
+            }
+            if (path.startsWith("http") || path.startsWith("rtmp")) {
+                return null; // 交给各自的通道
+            }
+            File f = new File(path);
+            if (f.isFile()) {
+                return ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private static ParcelFileDescriptor openFile(File f) {
+        try {
+            return ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** 确保 image 源的循环 mp4 缓存存在（懒生成，加锁防并发重复编码），返回缓存路径或 null。 */
+    public static String ensureImageCache(Context context, VcamConfig.SourceEntry se) {
+        synchronized (SourceResolver.class) {
+            return ensureImageCacheLocked(context, se);
+        }
+    }
+
+    private static String ensureImageCacheLocked(Context context, VcamConfig.SourceEntry se) {
+        if (se.cache != null && new File(se.cache).isFile()) {
+            return se.cache;
+        }
         try {
             BitmapFactory.Options o = new BitmapFactory.Options();
             o.inJustDecodeBounds = true;
-            BitmapFactory.decodeFile(imagePath, o);
+            decodeBounds(context, se.path, o);
             if (o.outWidth <= 0) {
                 return null;
             }
@@ -72,7 +123,7 @@ public final class SourceResolver {
                 s *= 2;
             }
             b.inSampleSize = s;
-            Bitmap bmp = BitmapFactory.decodeFile(imagePath, b);
+            Bitmap bmp = decode(context, se.path, b);
             if (bmp == null) {
                 return null;
             }
@@ -81,10 +132,54 @@ public final class SourceResolver {
             if (!dir.exists()) {
                 dir.mkdirs();
             }
-            File cache = new File(dir, "img_" + Integer.toHexString(imagePath.hashCode()) + ".mp4");
+            File cache = new File(dir, "img_" + Integer.toHexString(se.path.hashCode()) + ".mp4");
             File out = ImageVideoEncoder.encode(bmp, cache);
             bmp.recycle();
-            return out != null ? out.getAbsolutePath() : null;
+            if (out != null) {
+                se.cache = out.getAbsolutePath();
+                // 写回配置，避免每次请求重新编码
+                VcamConfig c = ConfigStore.loadForManager();
+                for (java.util.Map.Entry<String, VcamConfig.SourceEntry> en : c.sources.entrySet()) {
+                    if (en.getValue() == se) {
+                        c.sources.put(en.getKey(), se);
+                        break;
+                    }
+                }
+                ConfigStore.saveForManager(c);
+                return se.cache;
+            }
+            return null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static void decodeBounds(Context context, String path, BitmapFactory.Options o) {
+        if (path != null && path.startsWith("content:")) {
+            try {
+                InputStream in = context.getContentResolver().openInputStream(Uri.parse(path));
+                BitmapFactory.decodeStream(in, null, o);
+                if (in != null) {
+                    in.close();
+                }
+            } catch (Throwable ignored) {
+            }
+        } else {
+            BitmapFactory.decodeFile(path, o);
+        }
+    }
+
+    private static Bitmap decode(Context context, String path, BitmapFactory.Options o) {
+        try {
+            if (path != null && path.startsWith("content:")) {
+                InputStream in = context.getContentResolver().openInputStream(Uri.parse(path));
+                Bitmap bmp = BitmapFactory.decodeStream(in, null, o);
+                if (in != null) {
+                    in.close();
+                }
+                return bmp;
+            }
+            return BitmapFactory.decodeFile(path, o);
         } catch (Throwable t) {
             return null;
         }

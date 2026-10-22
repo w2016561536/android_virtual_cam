@@ -194,8 +194,9 @@ public class HookMain implements IXposedHookLoadPackage {
                 if (pfd != null) {
                     return new SourceHandle(null, pfd, "provider:" + name);
                 }
+                log(pkg, "provider 返回空 FD: " + name);
             } catch (Throwable t) {
-                log(pkg, "provider 打开源失败: " + t);
+                log(pkg, "provider 打开源失败[" + name + "]: " + t);
             }
         }
         String path = effectiveSource(pkg);
@@ -207,7 +208,9 @@ public class HookMain implements IXposedHookLoadPackage {
             if (f != null) {
                 return new SourceHandle(f.getAbsolutePath(), null, f.getAbsolutePath());
             }
+            log(pkg, "文件源不可读: " + path);
         }
+        log(pkg, "所有源通道均失败: " + name);
         return null;
     }
 

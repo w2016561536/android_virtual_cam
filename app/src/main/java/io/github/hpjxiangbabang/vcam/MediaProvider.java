@@ -65,15 +65,11 @@ public class MediaProvider extends ContentProvider {
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws java.io.FileNotFoundException {
         java.util.List<String> segs = uri.getPathSegments();
         String name = segs != null && !segs.isEmpty() ? segs.get(segs.size() - 1) : "";
-        File f = SourceResolver.resolve(getContext(), name);
-        if (f == null) {
+        ParcelFileDescriptor pfd = SourceResolver.openFd(getContext(), name);
+        if (pfd == null) {
             throw new java.io.FileNotFoundException("no source: " + name);
         }
-        try {
-            return ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
-        } catch (Throwable t) {
-            throw new java.io.FileNotFoundException("open failed: " + t);
-        }
+        return pfd;
     }
 
     @Override

@@ -105,14 +105,15 @@ public final class Camera1Hook {
         // ---- startPreview：启动渲染与缓冲源 ----
         XposedHelpers.findAndHookMethod("android.hardware.Camera", lpparam.classLoader,
                 "startPreview", new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        Cam1Session s = sessionFor((Camera) param.thisObject, pkg);
-                        if (!HookMain.enabled(pkg) || !HookMain.sourceReady(pkg)) {
-                            return;
-                        }
-                        startSession(s, pkg);
-                    }
+@Override
+            protected void beforeHookedMethod(MethodHookParam param) {
+                Cam1Session s = sessionFor((Camera) param.thisObject, pkg);
+                if (!HookMain.enabled(pkg) || !HookMain.sourceReady(pkg)) {
+                    log(pkg, "startPreview 时源不可用，放行真相机");
+                    return;
+                }
+                startSession(s, pkg);
+            }
                 });
 
         // ---- 预览回调：喂虚拟帧 ----
