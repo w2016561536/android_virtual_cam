@@ -21,8 +21,11 @@ import io.github.hpjxiangbabang.vcam.config.ConfigStore;
 import io.github.hpjxiangbabang.vcam.config.VcamConfig;
 
 /**
- * 悬浮控制窗（P2.1c）：hook 端相机被接管时自动显示，只有 声音/上一个/暂停/下一个
- * 四键，可拖动。显隐由 hook 端经 MediaProvider"cameraState"上报。
+ * 悬浮控制窗（P2.1c，双态）：
+ * - 平时只有一个悬浮小图标（相机），可拖动；
+ * - 点小图标 → 展开为控制条：[收起] [声音] [上一个] [暂停] [下一个]；
+ * - 点收起 → 缩回小图标；
+ * - 相机被 hook 接管时自动出现，相机关闭自动消失。
  * 切换逻辑与主界面控制条一致：全局"当前源"（默认源+所有绑定一起切），
  * ConfigStore 保存即广播 notifyChange → hook 端 ContentObserver 即时生效。
  */
@@ -30,9 +33,14 @@ public class FloatingControlService extends Service {
 
     private static volatile FloatingControlService sInstance;
     private WindowManager mWm;
-    private View mBar;
+    private View mCurrent;                        // 当前挂在窗口上的视图（小图标或展开条）
     private WindowManager.LayoutParams mParams;
+    private boolean mExpanded = false;
     private Handler mMain;
+
+    public static boolean isRunning() {
+        return sInstance != null;
+    }
 
     public static void onCameraState(android.content.Context ctx, boolean active) {
         FloatingControlService s = sInstance;
@@ -52,17 +60,13 @@ public class FloatingControlService extends Service {
                 FloatingControlService inst = sInstance;
                 if (inst != null) {
                     if (active) {
-                        inst.showBar();
+                        inst.show();
                     } else {
-                        inst.hideBar();
+                        inst.hide();
                     }
                 }
             });
         }
-    }
-
-    public static boolean isRunning() {
-        return sInstance != null;
     }
 
     @Override
@@ -76,103 +80,30 @@ public class FloatingControlService extends Service {
         sInstance = this;
         mWm = (WindowManager) getSystemService(WINDOW_SERVICE);
         mMain = new Handler(Looper.getMainLooper());
-        log("service created, cameraActive=" + ControlState.cameraActive);
         if (ControlState.cameraActive) {
-            showBar();
+            show();
         }
     }
 
     @Override
     public void onDestroy() {
-        hideBar();
+        hide();
         sInstance = null;
         super.onDestroy();
     }
 
-    private synchronized void showBar() {
-        log("showBar enter, mBar=" + (mBar != null));
-        if (mBar != null) {
+    // ---------------- 显隐 ----------------
+
+    private synchronized void show() {
+        if (mCurrent != null) {
             return;
         }
+        if (mExpanded) {
+            mCurrent = buildExpanded();
+        } else {
+            mCurrent = buildCollapsed();
+        }
         try {
-            LinearLayout bar = new LinearLayout(this);
-            bar.setOrientation(LinearLayout.HORIZONTAL);
-            bar.setBackgroundColor(0xAA202020);
-            int pad = (int) (4 * getResources().getDisplayMetrics().density);
-            bar.setPadding(pad, pad, pad, pad);
-            int iconPad = (int) (4 * getResources().getDisplayMetrics().density);
-
-            ImageButton sound = new ImageButton(this);
-            sound.setImageResource(android.R.drawable.ic_lock_silent_mode);
-            sound.setPadding(iconPad, iconPad, iconPad, iconPad);
-            sound.setBackgroundColor(0x00000000);
-            sound.setOnClickListener(v -> {
-                ControlState.videoSound = !ControlState.videoSound;
-                sound.setImageResource(ControlState.videoSound
-                        ? android.R.drawable.ic_btn_speak_now
-                        : android.R.drawable.ic_lock_silent_mode);
-                MediaProvider.notifyChanged(this);
-            });
-            bar.addView(sound, rowParams());
-
-            ImageButton prev = new ImageButton(this);
-            prev.setImageResource(android.R.drawable.ic_media_previous);
-            prev.setPadding(iconPad, iconPad, iconPad, iconPad);
-            prev.setBackgroundColor(0x00000000);
-            prev.setOnClickListener(v -> cycleSource(-1));
-            bar.addView(prev, rowParams());
-
-            final ImageButton pause = new ImageButton(this);
-            pause.setImageResource(android.R.drawable.ic_media_pause);
-            pause.setPadding(iconPad, iconPad, iconPad, iconPad);
-            pause.setBackgroundColor(0x00000000);
-            pause.setOnClickListener(v -> {
-                ControlState.paused = !ControlState.paused;
-                pause.setImageResource(ControlState.paused
-                        ? android.R.drawable.ic_media_play
-                        : android.R.drawable.ic_media_pause);
-                MediaProvider.notifyChanged(this);
-            });
-            bar.addView(pause, rowParams());
-
-            ImageButton next = new ImageButton(this);
-            next.setImageResource(android.R.drawable.ic_media_next);
-            next.setPadding(iconPad, iconPad, iconPad, iconPad);
-            next.setBackgroundColor(0x00000000);
-            next.setOnClickListener(v -> cycleSource(1));
-            bar.addView(next, rowParams());
-
-            // 按住 bar 空白处拖动
-            bar.setOnTouchListener(new View.OnTouchListener() {
-                float downX, downY;
-                int startX, startY;
-
-                @Override
-                public boolean onTouch(View v, MotionEvent event) {
-                    if (mParams == null) {
-                        return false;
-                    }
-                    switch (event.getAction()) {
-                        case MotionEvent.ACTION_DOWN:
-                            downX = event.getRawX();
-                            downY = event.getRawY();
-                            startX = mParams.x;
-                            startY = mParams.y;
-                            return true;
-                        case MotionEvent.ACTION_MOVE:
-                            mParams.x = startX + (int) (event.getRawX() - downX);
-                            mParams.y = startY + (int) (event.getRawY() - downY);
-                            try {
-                                mWm.updateViewLayout(mBar, mParams);
-                            } catch (Throwable ignored) {
-                            }
-                            return true;
-                        default:
-                            return false;
-                    }
-                }
-            });
-
             mParams = new WindowManager.LayoutParams(
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     WindowManager.LayoutParams.WRAP_CONTENT,
@@ -182,27 +113,175 @@ public class FloatingControlService extends Service {
             mParams.gravity = Gravity.TOP | Gravity.START;
             mParams.x = 40;
             mParams.y = 120;
-
-            mWm.addView(bar, mParams);
-            mBar = bar;
+            mWm.addView(mCurrent, mParams);
         } catch (Throwable t) {
             log("悬浮窗创建失败: " + t);
+            mCurrent = null;
         }
     }
 
-    private LinearLayout.LayoutParams rowParams() {
-        int s = (int) (44 * getResources().getDisplayMetrics().density);
-        return new LinearLayout.LayoutParams(s, s);
-    }
-
-    private synchronized void hideBar() {
-        if (mBar != null) {
+    private synchronized void hide() {
+        if (mCurrent != null) {
             try {
-                mWm.removeView(mBar);
+                mWm.removeView(mCurrent);
             } catch (Throwable ignored) {
             }
-            mBar = null;
+            mCurrent = null;
         }
+    }
+
+    /** 在小图标与展开条之间切换（保持位置）。 */
+    private synchronized void swap(boolean expand) {
+        if (mCurrent == null) {
+            return;
+        }
+        int x = mParams != null ? mParams.x : 40;
+        int y = mParams != null ? mParams.y : 120;
+        try {
+            mWm.removeView(mCurrent);
+        } catch (Throwable ignored) {
+        }
+        mExpanded = expand;
+        mCurrent = expand ? buildExpanded() : buildCollapsed();
+        mParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT);
+        mParams.gravity = Gravity.TOP | Gravity.START;
+        mParams.x = x;
+        mParams.y = y;
+        try {
+            mWm.addView(mCurrent, mParams);
+        } catch (Throwable t) {
+            log("悬浮窗切换失败: " + t);
+            mCurrent = null;
+        }
+    }
+
+    // ---------------- 视图构建 ----------------
+
+    private int iconPad() {
+        return (int) (4 * getResources().getDisplayMetrics().density);
+    }
+
+    private int iconSize() {
+        return (int) (44 * getResources().getDisplayMetrics().density);
+    }
+
+    private LinearLayout.LayoutParams iconParams() {
+        return new LinearLayout.LayoutParams(iconSize(), iconSize());
+    }
+
+    /** 收起态：单个相机小图标，点击展开。 */
+    private View buildCollapsed() {
+        ImageButton icon = new ImageButton(this);
+        icon.setImageResource(android.R.drawable.ic_menu_camera);
+        icon.setPadding(iconPad(), iconPad(), iconPad(), iconPad());
+        icon.setBackgroundColor(0xAA202020);
+        icon.setOnClickListener(v -> swap(true));
+        attachDrag(icon);
+        return icon;
+    }
+
+    /** 展开态：[收起] [声音] [上一个] [暂停] [下一个]。 */
+    private View buildExpanded() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setBackgroundColor(0xAA202020);
+        bar.setPadding(iconPad(), iconPad(), iconPad(), iconPad());
+
+        ImageButton collapse = new ImageButton(this);
+        collapse.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
+        collapse.setPadding(iconPad(), iconPad(), iconPad(), iconPad());
+        collapse.setBackgroundColor(0x00000000);
+        collapse.setOnClickListener(v -> swap(false));
+        bar.addView(collapse, iconParams());
+
+        ImageButton sound = new ImageButton(this);
+        sound.setImageResource(ControlState.videoSound
+                ? android.R.drawable.ic_btn_speak_now
+                : android.R.drawable.ic_lock_silent_mode);
+        sound.setPadding(iconPad(), iconPad(), iconPad(), iconPad());
+        sound.setBackgroundColor(0x00000000);
+        sound.setOnClickListener(v -> {
+            ControlState.videoSound = !ControlState.videoSound;
+            sound.setImageResource(ControlState.videoSound
+                    ? android.R.drawable.ic_btn_speak_now
+                    : android.R.drawable.ic_lock_silent_mode);
+            MediaProvider.notifyChanged(this);
+        });
+        bar.addView(sound, iconParams());
+
+        ImageButton prev = new ImageButton(this);
+        prev.setImageResource(android.R.drawable.ic_media_previous);
+        prev.setPadding(iconPad(), iconPad(), iconPad(), iconPad());
+        prev.setBackgroundColor(0x00000000);
+        prev.setOnClickListener(v -> cycleSource(-1));
+        bar.addView(prev, iconParams());
+
+        final ImageButton pause = new ImageButton(this);
+        pause.setImageResource(ControlState.paused
+                ? android.R.drawable.ic_media_play
+                : android.R.drawable.ic_media_pause);
+        pause.setPadding(iconPad(), iconPad(), iconPad(), iconPad());
+        pause.setBackgroundColor(0x00000000);
+        pause.setOnClickListener(v -> {
+            ControlState.paused = !ControlState.paused;
+            pause.setImageResource(ControlState.paused
+                    ? android.R.drawable.ic_media_play
+                    : android.R.drawable.ic_media_pause);
+            MediaProvider.notifyChanged(this);
+        });
+        bar.addView(pause, iconParams());
+
+        ImageButton next = new ImageButton(this);
+        next.setImageResource(android.R.drawable.ic_media_next);
+        next.setPadding(iconPad(), iconPad(), iconPad(), iconPad());
+        next.setBackgroundColor(0x00000000);
+        next.setOnClickListener(v -> cycleSource(1));
+        bar.addView(next, iconParams());
+
+        attachDrag(bar);
+        return bar;
+    }
+
+    /** 按住非按钮区域（容器本身）拖动。 */
+    private void attachDrag(View v) {
+        v.setOnTouchListener(new View.OnTouchListener() {
+            float downX, downY;
+            int startX, startY;
+
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (mParams == null) {
+                    return false;
+                }
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downX = event.getRawX();
+                        downY = event.getRawY();
+                        startX = mParams.x;
+                        startY = mParams.y;
+                        return true;
+                    case MotionEvent.ACTION_MOVE:
+                        float dx = event.getRawX() - downX;
+                        float dy = event.getRawY() - downY;
+                        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+                            mParams.x = startX + (int) dx;
+                            mParams.y = startY + (int) dy;
+                            try {
+                                mWm.updateViewLayout(mCurrent, mParams);
+                            } catch (Throwable ignored) {
+                            }
+                        }
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        });
     }
 
     /** 与主界面控制条一致的"当前源"循环切换（全局：默认源+所有绑定）。 */
